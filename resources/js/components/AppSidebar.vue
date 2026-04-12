@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { Link } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 import { BookOpen, FolderGit2, GraduationCap, LayoutGrid } from 'lucide-vue-next';
+import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
 import NavFooter from '@/components/NavFooter.vue';
 import NavMain from '@/components/NavMain.vue';
@@ -15,21 +16,35 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { dashboard } from '@/routes';
-import workshops from '@/routes/workshops';
+import adminWorkshops from '@/routes/admin/workshops';
+import appWorkshops from '@/routes/app/workshops';
 import type { NavItem } from '@/types';
 
-const mainNavItems: NavItem[] = [
-    {
-        title: 'Dashboard',
-        href: dashboard(),
-        icon: LayoutGrid,
-    },
-    {
-        title: 'Workshops',
-        href: workshops.index(),
-        icon: GraduationCap,
-    },
-];
+const page = usePage();
+
+const mainNavItems = computed<NavItem[]>(() => {
+    const items: NavItem[] = [
+        {
+            title: 'Dashboard',
+            href: dashboard(),
+            icon: LayoutGrid,
+        },
+    ];
+
+    if (page.props.auth.workshop_permissions.view) {
+        const href = page.props.auth.workshop_permissions.manage
+            ? adminWorkshops.index()
+            : appWorkshops.index();
+
+        items.push({
+            title: 'Workshops',
+            href,
+            icon: GraduationCap,
+        });
+    }
+
+    return items;
+});
 
 const footerNavItems: NavItem[] = [
     {

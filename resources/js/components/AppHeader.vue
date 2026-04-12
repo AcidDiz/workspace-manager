@@ -43,7 +43,8 @@ import { useCurrentUrl } from '@/composables/useCurrentUrl';
 import { getInitials } from '@/composables/useInitials';
 import { toUrl } from '@/lib/utils';
 import { dashboard } from '@/routes';
-import workshops from '@/routes/workshops';
+import adminWorkshops from '@/routes/admin/workshops';
+import appWorkshops from '@/routes/app/workshops';
 import type { BreadcrumbItem, NavItem } from '@/types';
 
 type Props = {
@@ -61,18 +62,29 @@ const { isCurrentUrl, whenCurrentUrl } = useCurrentUrl();
 const activeItemStyles =
     'text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100';
 
-const mainNavItems: NavItem[] = [
-    {
-        title: 'Dashboard',
-        href: dashboard(),
-        icon: LayoutGrid,
-    },
-    {
-        title: 'Workshops',
-        href: workshops.index(),
-        icon: GraduationCap,
-    },
-];
+const mainNavItems = computed<NavItem[]>(() => {
+    const items: NavItem[] = [
+        {
+            title: 'Dashboard',
+            href: dashboard(),
+            icon: LayoutGrid,
+        },
+    ];
+
+    if (page.props.auth.workshop_permissions.view) {
+        const href = page.props.auth.workshop_permissions.manage
+            ? adminWorkshops.index()
+            : appWorkshops.index();
+
+        items.push({
+            title: 'Workshops',
+            href,
+            icon: GraduationCap,
+        });
+    }
+
+    return items;
+});
 
 const rightNavItems: NavItem[] = [
     {
@@ -251,7 +263,7 @@ const rightNavItems: NavItem[] = [
                         </div>
                     </div>
 
-                    <DropdownMenu>
+                    <DropdownMenu v-if="auth.user">
                         <DropdownMenuTrigger :as-child="true">
                             <Button
                                 variant="ghost"
@@ -269,7 +281,7 @@ const rightNavItems: NavItem[] = [
                                     <AvatarFallback
                                         class="rounded-lg bg-neutral-200 font-semibold text-black dark:bg-neutral-700 dark:text-white"
                                     >
-                                        {{ getInitials(auth.user?.name) }}
+                                        {{ getInitials(auth.user.name) }}
                                     </AvatarFallback>
                                 </Avatar>
                             </Button>

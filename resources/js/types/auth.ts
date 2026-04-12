@@ -1,3 +1,5 @@
+import type { WorkshopPermissions } from '@/types/models';
+
 export type User = {
     id: number;
     name: string;
@@ -10,7 +12,8 @@ export type User = {
 };
 
 export type Auth = {
-    user: User;
+    user: User | null;
+    workshop_permissions: WorkshopPermissions;
 };
 
 export type TwoFactorConfigContent = {
