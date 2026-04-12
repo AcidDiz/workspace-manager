@@ -32,25 +32,60 @@ Typical patterns:
 
 ## Authenticated application (`routes/web.php`)
 
-Middleware on the group: `auth`, `verified` (email must be verified).
+### Dashboard
 
-| Method | URI          | Route name        | Typical response                                                                                                  |
-| ------ | ------------ | ----------------- | ----------------------------------------------------------------------------------------------------------------- |
-| GET    | `/dashboard` | `dashboard`       | Inertia `Dashboard`.                                                                                              |
-| GET    | `/workshops` | `workshops.index` | Inertia `workshops/Index`; prop `upcomingWorkshops` (workshops with `starts_at > now()`, ordered by `starts_at`). |
+Middleware: `auth`, `verified`.
 
-**Unauthenticated** access to these URIs redirects to Fortify login (or equivalent).
+| Method | URI          | Route name  | Typical response     |
+| ------ | ------------ | ----------- | -------------------- |
+| GET    | `/dashboard` | `dashboard` | Inertia `Dashboard`. |
 
-### Example: list upcoming workshops
+### Workshops (domain pages)
+
+Workshops are split into two distinct web areas:
+
+- **App area** (`/app/*`): employee-facing browsing experience.
+- **Admin area** (`/admin/*`): management-facing list and table tooling.
+
+#### App workshops index (view permission)
+
+Middleware: `auth`, `verified`, and Laravel `can:viewAny,App\Models\Workshop` (resolved via `WorkshopPolicy`: requires Spatie ability `workshops.view`).
+
+| Method | URI              | Route name           | Typical response                                                                                                                                                                                                                                                                                                                                                                               |
+| ------ | ---------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/app/workshops` | `app.workshops.index` | **403** if the user cannot `viewAny` workshops. For admins (`workshops.manage`), this URI **redirects** to `admin.workshops.index` to keep the two areas distinct. For employees, returns Inertia `app/workshops/Index` with `workshopList`, `filters`, and employee **card** filters (`employeeFilterFields`). Query: optional `status` (`all` \| `upcoming` \| `closed`), `category_id`, `title`, `starts_on`. |
+
+#### Admin workshops index (manage permission)
+
+Middleware: `auth`, `verified`, and Laravel `can:create,App\Models\Workshop` (resolved via `WorkshopPolicy`: requires Spatie ability `workshops.manage`).
+
+| Method | URI                | Route name             | Typical response                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ------ | ------------------ | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/admin/workshops` | `admin.workshops.index` | **403** if the user cannot `create` workshops. Otherwise returns Inertia `admin/workshops/Index` with `workshopList`, `filters`, `showWorkshopTable` (true), and admin **table** metadata (`workshopTableColumns`). Query: optional `status` (`all` \| `upcoming` \| `closed`), `category_id`, `title`, `starts_on`, plus admin-only `created_by`. Admin table sorting: `sort` (`title` \| `starts_at` \| `category.name` \| `creator.name` \| `timing_status`) and `direction` (`asc` \| `desc`). |
+
+**Unauthenticated** access to these URIs redirects to Fortify login (or equivalent) before authorization runs.
+
+Shared Inertia props (via `HandleInertiaRequests`): `auth.workshop_permissions.view` and `auth.workshop_permissions.manage` (booleans) for navigation and conditional CTAs.
+
+### Example: list workshops (default filters for role)
 
 ```http
-GET /workshops HTTP/1.1
+GET /app/workshops HTTP/1.1
 Host: <your-host>
 Cookie: laravel_session=...
 Accept: text/html
 ```
 
-**Typical success:** `200 OK` with HTML shell and Inertia page component `workshops/Index`.
+**Typical success:** `200 OK` with HTML shell and Inertia page component `app/workshops/Index` (employee) or a `302` redirect to `admin.workshops.index` (admin).
+
+### Example: admin sorting by title
+
+```http
+GET /admin/workshops?sort=title&direction=desc HTTP/1.1
+Host: <your-host>
+Cookie: laravel_session=...
+Accept: text/html
+```
 
 ## Settings (`routes/settings.php`)
 

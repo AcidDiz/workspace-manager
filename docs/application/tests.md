@@ -30,7 +30,7 @@ php artisan make:test WorkshopExampleTest --pest
 ### Conventions in this repo
 
 - Use the `test('description', function () { ... })` style to match existing files (not required by Pest, but keeps the tree consistent).
-- For **Inertia** responses, use `assertInertia()` with `Inertia\Testing\AssertableInertia as Assert` and assert `component`, props, and counts (see `tests/Feature/WorkshopIndexTest.php`).
+- For **Inertia** responses, use `assertInertia()` with `Inertia\Testing\AssertableInertia as Assert` and assert `component`, props, and counts (see `tests/Feature/WorkshopIndexTest.php` and `tests/Feature/WorkshopAuthorizationTest.php` for permission-aware pages).
 - For **Fortify-dependent** behaviour, use `$this->skipUnlessFortifyHas(...)` from `Tests\TestCase` when a feature flag may disable the flow (see `tests/Feature/Settings/SecurityTest.php`).
 - Prefer **specific** Laravel assertions (`assertSuccessful()`, `assertRedirect()`, `assertOk()`) over raw status codes where the project already does so.
 

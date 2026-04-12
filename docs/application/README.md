@@ -26,4 +26,4 @@ For installation, running the stack, and quality commands, use the root [`../STA
 
 ## Generated and non-authoritative assets
 
-Laravel **Wayfinder** generates TypeScript route helpers under `resources/js/routes` (and related paths). Those files are often **gitignored** and are **not** the source of truth for routes—the Laravel route files and this repo’s `docs/api/` descriptions are. Regenerate after route changes with `php artisan wayfinder:generate` or via `npm run dev` / `npm run build` when the Vite Wayfinder plugin runs.
+Laravel **Wayfinder** provides generated TypeScript route helpers that the frontend imports as `@/routes/*` (for example `@/routes/app/workshops` and `@/routes/admin/workshops`). Those helpers may be **generated at build/dev time** by the Vite Wayfinder plugin and can be **gitignored** (so they might not exist as committed source files on disk). They are **not** the source of truth for routes—the Laravel route files and this repo’s `docs/api/` descriptions are. Regenerate after route changes with `php artisan wayfinder:generate` or via `npm run dev` / `npm run build` when the Vite Wayfinder plugin runs.
