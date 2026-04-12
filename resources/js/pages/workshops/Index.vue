@@ -10,15 +10,7 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import workshops from '@/routes/workshops';
-
-export type WorkshopSummary = {
-    id: number;
-    title: string;
-    description: string | null;
-    starts_at: string;
-    ends_at: string;
-    capacity: number;
-};
+import type { WorkshopSummary } from '@/types/models';
 
 defineProps<{
     upcomingWorkshops: WorkshopSummary[];
@@ -38,6 +30,7 @@ defineOptions({
 function formatRange(startsAt: string, endsAt: string): string {
     const start = new Date(startsAt);
     const end = new Date(endsAt);
+
     return new Intl.DateTimeFormat(undefined, {
         dateStyle: 'medium',
         timeStyle: 'short',

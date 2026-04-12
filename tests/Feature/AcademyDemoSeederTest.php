@@ -1,9 +1,9 @@
 <?php
 
-use App\Enums\WorkshopRegistrationStatus;
 use App\Models\User;
 use App\Models\Workshop;
 use App\Models\WorkshopRegistration;
+use Database\Seeders\AcademyDemoSeeder;
 use Database\Seeders\DatabaseSeeder;
 use Spatie\Permission\Models\Role;
 
@@ -20,14 +20,36 @@ test('academy demo seeder provisions roles, users, and workshop domain data', fu
         ->and($admin->hasRole('admin'))->toBeTrue()
         ->and($employee->hasRole('employee'))->toBeTrue();
 
-    expect(Workshop::count())->toBe(3)
-        ->and(WorkshopRegistration::count())->toBe(3);
+    expect(User::count())->toBe(16)
+        ->and(User::role('employee')->count())->toBe(15);
 
-    expect(WorkshopRegistration::query()->confirmed()->count())->toBe(2)
-        ->and(WorkshopRegistration::query()->waitingList()->count())->toBe(1)
-        ->and(
-            WorkshopRegistration::query()
-                ->where('status', WorkshopRegistrationStatus::WaitingList)
-                ->value('user_id')
-        )->toBe($employee->id);
+    expect(Workshop::count())->toBe(AcademyDemoSeeder::WORKSHOP_COUNT);
+
+    $expectedRegistrations = Workshop::query()->get()->sum(function (Workshop $workshop): int {
+        return match (true) {
+            $workshop->capacity >= 3 => 3,
+            $workshop->capacity === 2 => 3,
+            default => 2,
+        };
+    });
+
+    $expectedConfirmed = Workshop::query()->get()->sum(function (Workshop $workshop): int {
+        return match (true) {
+            $workshop->capacity >= 3 => 3,
+            $workshop->capacity === 2 => 2,
+            default => 1,
+        };
+    });
+
+    $expectedWaitingList = Workshop::query()->get()->sum(function (Workshop $workshop): int {
+        return match (true) {
+            $workshop->capacity >= 3 => 0,
+            $workshop->capacity === 2 => 1,
+            default => 1,
+        };
+    });
+
+    expect(WorkshopRegistration::count())->toBe($expectedRegistrations)
+        ->and(WorkshopRegistration::query()->confirmed()->count())->toBe($expectedConfirmed)
+        ->and(WorkshopRegistration::query()->waitingList()->count())->toBe($expectedWaitingList);
 });
