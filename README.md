@@ -34,8 +34,8 @@ Per lavorare sul progetto in locale servono almeno:
 - PHP 8.3+
 - Composer 2.x
 - Node.js 20+ con npm
-- SQLite oppure MySQL
-- estensioni PHP tipiche di Laravel, inclusi PDO, mbstring, openssl e tokenizer
+- MySQL (via Sail o installazione locale) per lo sviluppo applicativo
+- estensioni PHP tipiche di Laravel, inclusi PDO MySQL, **pdo_sqlite** (serve per `php artisan test` in locale se esegui i test fuori da Docker), mbstring, openssl e tokenizer
 
 Se vuoi usare Laravel Sail, aggiungi anche:
 
@@ -49,9 +49,9 @@ In questo progetto Sail deve avviare almeno:
 
 Consiglio pratico:
 
-- usare SQLite per partire rapidamente
-- usare MySQL solo se serve testare un comportamento specifico del DB engine
-- usare Sail quando vuoi un ambiente ripetibile su sistemi operativi diversi senza dipendere dalla configurazione locale del database
+- usare Sail con MySQL e Redis come ambiente di sviluppo principale
+- la suite di test usa di default SQLite in-memory (vedi `phpunit.xml`), senza dipendere dal database di sviluppo
+- per eseguire i test contro MySQL (es. verifiche specifiche del motore), imposta `DB_CONNECTION=mysql` e le variabili `DB_*` prima di lanciare `php artisan test`
 
 ## Installazione passo-passo
 
@@ -116,31 +116,9 @@ Se vuoi anche installare i dati demo o altri seed:
 ./vendor/bin/sail artisan db:seed
 ```
 
-#### Opzione locale: database nativo
+#### Opzione locale: MySQL senza Docker
 
-Usa una delle configurazioni seguenti:
-
-##### SQLite
-
-Aggiorna `.env` con una configurazione minima:
-
-```dotenv
-DB_CONNECTION=sqlite
-DB_DATABASE=/absolute/path/to/workshop-manager/database/database.sqlite
-SESSION_DRIVER=database
-QUEUE_CONNECTION=database
-CACHE_STORE=database
-```
-
-Poi crea il file SQLite:
-
-```bash
-touch database/database.sqlite
-```
-
-##### MySQL
-
-Se vuoi usare MySQL, aggiorna `.env` con:
+Se non usi Sail, configura MySQL in `.env` con:
 
 ```dotenv
 DB_CONNECTION=mysql
@@ -216,14 +194,46 @@ php artisan pail --timeout=0
 
 ### Test applicativi
 
+Di default i test usano SQLite in-memory (`phpunit.xml`). Per solo PHPUnit/Pest senza Pint:
+
+```bash
+composer run test:php -- --compact
+```
+
+Oppure:
+
 ```bash
 php artisan test --compact
 ```
 
-Se stai usando Sail:
+Se stai usando Sail (stesso default SQLite in-memory per i test):
 
 ```bash
 ./vendor/bin/sail artisan test --compact
+```
+
+Per forzare i test sul database MySQL di Sail (variabili gia' presenti nel container):
+
+```bash
+DB_CONNECTION=mysql DB_HOST=mysql DB_DATABASE=testing ./vendor/bin/sail artisan test --compact
+```
+
+### Test browser (Pest + Playwright)
+
+I test in `tests/Browser` non sono inclusi nel comando `php artisan test` predefinito (solo `Unit` e `Feature` in `phpunit.xml`). Eseguili con:
+
+```bash
+npm install
+npx playwright install
+composer run test:browser -- --compact
+```
+
+Con Sail, dalla root del progetto applicativo:
+
+```bash
+./vendor/bin/sail npm install
+./vendor/bin/sail npx playwright install
+./vendor/bin/sail composer run test:browser -- --compact
 ```
 
 ### Check frontend
@@ -277,3 +287,7 @@ Per default il mailer e' `log`, quindi le email finiscono nei log applicativi e 
 ### Cache o sessioni rompono l'app dopo il setup
 
 Con `CACHE_STORE=database` e `SESSION_DRIVER=database`, le migration devono essere eseguite correttamente prima di usare l'app.
+
+### Errori dei test: `could not find driver` con SQLite
+
+La suite imposta `DB_CONNECTION=sqlite` in `phpunit.xml`. Sul PHP di sistema installa l'estensione SQLite (es. su Debian/Ubuntu `php8.3-sqlite3`) oppure esegui i test nel container Sail, che include gia' i driver necessari.

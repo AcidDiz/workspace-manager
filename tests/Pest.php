@@ -1,6 +1,6 @@
 <?php
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
 
 /*
@@ -12,11 +12,17 @@ use Tests\TestCase;
 | case class. By default, that class is "PHPUnit\Framework\TestCase". Of course, you may
 | need to change it using the "pest()" function to bind different classes or traits.
 |
+| Database: phpunit.xml sets DB_CONNECTION=sqlite and DB_DATABASE=:memory: by default so tests
+| run without MySQL. To hit Sail/MySQL instead, export DB_CONNECTION=mysql (and DB_HOST, etc.)
+| before `php artisan test` or `composer run test:php`.
+|
 */
 
 pest()->extend(TestCase::class)
- // ->use(RefreshDatabase::class)
+    ->use(LazilyRefreshDatabase::class)
     ->in('Feature');
+
+pest()->extend(TestCase::class)->in('Browser');
 
 /*
 |--------------------------------------------------------------------------
