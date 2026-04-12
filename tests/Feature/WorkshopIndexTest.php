@@ -2,14 +2,19 @@
 
 use App\Models\User;
 use App\Models\Workshop;
+use Database\Seeders\RolePermissionSeeder;
 use Inertia\Testing\AssertableInertia as Assert;
 
 test('guests are redirected from the workshops index', function () {
-    $this->get(route('workshops.index'))->assertRedirect(route('login'));
+    $this->get(route('app.workshops.index'))->assertRedirect(route('login'));
+    $this->get(route('admin.workshops.index'))->assertRedirect(route('login'));
 });
 
-test('authenticated users can view the workshops index', function () {
+test('authenticated users with workshops.view can view the workshops index', function () {
+    $this->seed(RolePermissionSeeder::class);
+
     $user = User::factory()->create();
+    $user->assignRole('employee');
 
     Workshop::factory()->upcoming()->create([
         'title' => 'Visible session',
@@ -17,10 +22,13 @@ test('authenticated users can view the workshops index', function () {
     ]);
 
     $this->actingAs($user)
-        ->get(route('workshops.index'))
+        ->get(route('app.workshops.index'))
         ->assertOk()
-        ->assertInertia(fn(Assert $page) => $page
-            ->component('workshops/Index')
-            ->has('workshopsSummary', 1)
-            ->where('workshopsSummary.0.title', 'Visible session'));
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('app/workshops/Index')
+            ->has('workshopList', 1)
+            ->where('workshopList.0.title', 'Visible session')
+            ->where('showWorkshopTable', false)
+            ->where('filters.status', null)
+            ->has('employeeFilterFields'));
 });

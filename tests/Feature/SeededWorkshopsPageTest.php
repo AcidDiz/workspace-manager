@@ -11,10 +11,10 @@ test('demo seed exposes upcoming workshops on the index for a demo user', functi
     $admin = User::query()->where('email', 'admin@example.com')->firstOrFail();
 
     $this->actingAs($admin)
-        ->get(route('workshops.index'))
+        ->get(route('admin.workshops.index'))
         ->assertOk()
-        ->assertInertia(fn(Assert $page) => $page
-            ->component('workshops/Index')
-            ->has('workshopsSummary', AcademyDemoSeeder::WORKSHOP_COUNT)
-            ->where('workshopsSummary.0.title', 'Laravel in practice'));
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('admin/workshops/Index')
+            ->has('workshopList', AcademyDemoSeeder::WORKSHOP_COUNT)
+            ->where('workshopList.0.title', 'Laravel in practice'));
 });
