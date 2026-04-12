@@ -3,14 +3,19 @@
 namespace App\Models;
 
 use App\Enums\WorkshopRegistrationStatus;
+use Database\Factories\WorkshopRegistrationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable(['workshop_id', 'user_id', 'status'])]
 class WorkshopRegistration extends Model
 {
+    /** @use HasFactory<WorkshopRegistrationFactory> */
+    use HasFactory;
+
     /**
      * @return array<string, string>
      */
