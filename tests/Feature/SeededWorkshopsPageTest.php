@@ -13,8 +13,8 @@ test('demo seed exposes upcoming workshops on the index for a demo user', functi
     $this->actingAs($admin)
         ->get(route('workshops.index'))
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
+        ->assertInertia(fn(Assert $page) => $page
             ->component('workshops/Index')
-            ->has('upcomingWorkshops', AcademyDemoSeeder::WORKSHOP_COUNT)
-            ->where('upcomingWorkshops.0.title', 'Laravel in practice'));
+            ->has('workshopsSummary', AcademyDemoSeeder::WORKSHOP_COUNT)
+            ->where('workshopsSummary.0.title', 'Laravel in practice'));
 });

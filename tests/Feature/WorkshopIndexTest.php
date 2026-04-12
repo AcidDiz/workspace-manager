@@ -19,8 +19,8 @@ test('authenticated users can view the workshops index', function () {
     $this->actingAs($user)
         ->get(route('workshops.index'))
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
+        ->assertInertia(fn(Assert $page) => $page
             ->component('workshops/Index')
-            ->has('upcomingWorkshops', 1)
-            ->where('upcomingWorkshops.0.title', 'Visible session'));
+            ->has('workshopsSummary', 1)
+            ->where('workshopsSummary.0.title', 'Visible session'));
 });

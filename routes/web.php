@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\WorkshopController;
+use App\Http\Controllers\Workshops\WorkshopIndexController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
@@ -9,7 +9,7 @@ Route::inertia('/', 'Welcome', [
 ])->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('workshops', [WorkshopController::class, 'index'])->name('workshops.index');
+    Route::get('workshops', WorkshopIndexController::class)->name('workshops.index');
     Route::inertia('dashboard', 'Dashboard')->name('dashboard');
 });
 
