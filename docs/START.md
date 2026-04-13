@@ -272,7 +272,7 @@ Le code usano il driver `database`, quindi la tabella `jobs` deve esistere e il 
 
 ### Email non recapitate
 
-Per default il mailer e' `log`, quindi le email finiscono nei log applicativi e non in una mailbox reale.
+Il file `.env.example` e' predisposto per **Mailtrap** (SMTP `sandbox.smtp.mailtrap.io`): inserisci username e password dell'inbox. Con `MAIL_LOG_OUTGOING=true` viene scritto anche un riepilogo nei log (`storage/logs/mail.log` se `MAIL_OUTGOING_LOG_CHANNEL=mail`). Solo log senza SMTP: `MAIL_MAILER=log` e `MAIL_LOG_OUTGOING=false`.
 
 ### Cache o sessioni rompono l'app dopo il setup
 

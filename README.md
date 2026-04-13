@@ -190,6 +190,18 @@ php artisan queue:listen --tries=1 --timeout=0
 php artisan pail --timeout=0
 ```
 
+### Workshop reminder emails (scheduler)
+
+The app registers **`workshops:remind`** in `routes/console.php` to run **daily at 07:00** (application timezone). It emails **confirmed** participants only, for workshops whose **`starts_at`** falls on the **next calendar day** in `config('app.timezone')`—the decision is **date-based**, not “exactly N hours before”.
+
+Production requires a system cron entry that runs Laravel’s scheduler every minute, for example:
+
+```bash
+* * * * * cd /path/to/workshop-manager && php artisan schedule:run >> /dev/null 2>&1
+```
+
+Manual runs (e.g. with Sail): `./vendor/bin/sail artisan workshops:remind`. Ensure `MAIL_*` is configured so notifications can be delivered.
+
 ## Quality checks and testing
 
 ### Application tests
@@ -282,7 +294,9 @@ Queues use the `database` driver: the `jobs` table must exist and the worker mus
 
 ### Email not delivered
 
-The default mailer is `log`; messages go to the application logs, not a real mailbox.
+`.env.example` is set up for **Mailtrap** (`MAIL_MAILER=smtp`, `sandbox.smtp.mailtrap.io`): add your inbox credentials, then set `MAIL_LOG_OUTGOING=true` to also write a **summary** (subject, recipients, body preview) to `storage/logs/mail.log` when `MAIL_OUTGOING_LOG_CHANNEL=mail`, or leave `MAIL_OUTGOING_LOG_CHANNEL` empty to use the default log stack.
+
+For log-only delivery (no SMTP), use `MAIL_MAILER=log` and `MAIL_LOG_OUTGOING=false` to avoid duplicate log lines.
 
 ### Cache or sessions break the app after setup
 
