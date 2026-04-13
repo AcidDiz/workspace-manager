@@ -13,8 +13,7 @@ defineProps<{
   cardFilterFields: FilterBarField[];
 }>();
 
-const indexUrl = (query: Record<string, string>) =>
-  appWorkshops.index.url({ query });
+const indexUrl = (query: Record<string, string>) => appWorkshops.index.url({ query });
 
 defineOptions({
   layout: {
@@ -37,14 +36,10 @@ defineOptions({
       description="Browse sessions by category, date, and timing. Upcoming rows are listed first."
     />
 
-    <FiltersBar
-      :fields="cardFilterFields"
-      :filters="filters"
-      :index-url="indexUrl"
-    />
+    <FiltersBar :fields="cardFilterFields" :filters="filters" :index-url="indexUrl" />
 
-    <ul v-if="props.workshopList.length" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      <li v-for="w in props.workshopList" :key="w.id">
+    <ul v-if="workshopList.length" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <li v-for="w in workshopList" :key="w.id">
         <WorkshopCard :workshop="w" />
       </li>
     </ul>
@@ -54,4 +49,3 @@ defineOptions({
     </p>
   </div>
 </template>
-

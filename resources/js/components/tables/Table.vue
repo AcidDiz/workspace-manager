@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3';
 import { computed, useSlots } from 'vue';
+import WorkshopStatusBadge from '@/components/badge/WorkshopStatusBadge.vue';
 import type { FilterBarField, TableColumn } from '@/components/tables/types';
 import { formatTableCellValue, getNestedValue } from '@/components/tables/utils';
 import FiltersBar from '@/components/tables/FiltersBar.vue';
+
+function timingStatusLabel(raw: unknown): string {
+    return raw === 'upcoming' ? 'Upcoming' : 'Closed';
+}
 
 const props = withDefaults(
     defineProps<{
@@ -181,6 +186,12 @@ function toggleSort(column: TableColumn): void {
                                 <slot name="row-actions" :row="row" />
                             </template>
                             <template v-else-if="col.cast_type === 'actions'" />
+                            <template v-else-if="col.cast_type === 'workshop_timing_badge'">
+                                <WorkshopStatusBadge
+                                    :label="timingStatusLabel(getNestedValue(row, col.field_name))"
+                                    :badge-class="String(row.timing_status_badge_class ?? '')"
+                                />
+                            </template>
                             <template v-else>
                                 {{
                                     formatTableCellValue(

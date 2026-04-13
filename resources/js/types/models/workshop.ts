@@ -16,9 +16,15 @@ export type WorkshopListItem = {
     starts_at: string;
     ends_at: string;
     capacity: number;
+    confirmed_registrations_count: number;
+    enrollment: string;
     category: WorkshopCategoryRef;
     creator: WorkshopCreatorRef;
     timing_status: 'upcoming' | 'closed';
+    /** Tailwind classes from `WorkshopStatusEnum::badgeClassName()` (server). */
+    timing_status_badge_class: string;
+    /** Current user's registration for this workshop, if any. */
+    my_registration_status: 'confirmed' | 'waiting_list' | null;
 };
 
 /** @deprecated Use WorkshopListItem; kept for gradual renames. */
