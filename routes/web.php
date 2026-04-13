@@ -13,14 +13,14 @@ Route::inertia('/', 'Welcome', [
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('dashboard', 'Dashboard')->name('dashboard');
 
-    Route::middleware(['can:viewAny,' . Workshop::class])
+    Route::middleware(['can:viewAny,'.Workshop::class])
         ->prefix('app')
         ->as('app.')
         ->group(function () {
             Route::get('workshops', AppWorkshopIndexController::class)->name('workshops.index');
         });
 
-    Route::middleware(['can:create,' . Workshop::class])
+    Route::middleware(['can:create,'.Workshop::class])
         ->prefix('admin')
         ->as('admin.')
         ->group(function () {
@@ -28,4 +28,4 @@ Route::middleware(['auth', 'verified'])->group(function () {
         });
 });
 
-require __DIR__ . '/settings.php';
+require __DIR__.'/settings.php';

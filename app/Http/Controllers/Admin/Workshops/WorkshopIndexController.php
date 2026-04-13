@@ -28,4 +28,3 @@ class WorkshopIndexController extends Controller
         ]);
     }
 }
-

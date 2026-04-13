@@ -17,12 +17,12 @@ class WorkshopTableColumns
      */
     public static function adminTable(Collection $categories, Collection $creators): array
     {
-        $categoryOptions = $categories->map(fn($c) => [
+        $categoryOptions = $categories->map(fn ($c) => [
             'value' => (string) $c->id,
             'label' => $c->name,
         ])->values()->all();
 
-        $creatorOptions = $creators->map(fn($u) => [
+        $creatorOptions = $creators->map(fn ($u) => [
             'value' => (string) $u->id,
             'label' => $u->name,
         ])->values()->all();
@@ -103,7 +103,7 @@ class WorkshopTableColumns
      */
     public static function employeeFilters(Collection $categories): array
     {
-        $categoryOptions = $categories->map(fn($c) => [
+        $categoryOptions = $categories->map(fn ($c) => [
             'value' => (string) $c->id,
             'label' => $c->name,
         ])->values()->all();

@@ -33,4 +33,3 @@ class WorkshopIndexController extends Controller
         ]);
     }
 }
-
