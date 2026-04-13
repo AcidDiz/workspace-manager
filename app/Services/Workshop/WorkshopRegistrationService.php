@@ -30,7 +30,7 @@ class WorkshopRegistrationService
                 throw WorkshopRegistrationException::alreadyRegistered();
             }
 
-            $this->assertNoScheduleOverlapWithExistingRegistrations($user, $workshop);
+            $this->assertNoScheduleOverlapWithExistingRegistrations($user, $workshop, false);
 
             $confirmedCount = WorkshopRegistration::query()
                 ->where('workshop_id', $workshop->id)
@@ -49,7 +49,45 @@ class WorkshopRegistrationService
         });
     }
 
-    private function assertNoScheduleOverlapWithExistingRegistrations(User $user, Workshop $workshop): void
+    /**
+     * Admin-managed enrolment: any employee can be added even when the workshop is no longer “open”
+     * for self-service; still enforces duplicate and schedule-overlap rules for the subject user.
+     */
+    public function attachAsAdmin(User $subject, Workshop $workshop): WorkshopRegistration
+    {
+        return DB::transaction(function () use ($subject, $workshop) {
+            $workshop = Workshop::query()->whereKey($workshop->id)->lockForUpdate()->firstOrFail();
+
+            $existing = WorkshopRegistration::query()
+                ->where('workshop_id', $workshop->id)
+                ->where('user_id', $subject->id)
+                ->lockForUpdate()
+                ->first();
+
+            if ($existing !== null) {
+                throw WorkshopRegistrationException::subjectAlreadyRegistered();
+            }
+
+            $this->assertNoScheduleOverlapWithExistingRegistrations($subject, $workshop, true);
+
+            $confirmedCount = WorkshopRegistration::query()
+                ->where('workshop_id', $workshop->id)
+                ->where('status', WorkshopRegistrationStatusEnum::Confirmed)
+                ->count();
+
+            $status = $confirmedCount < $workshop->capacity
+                ? WorkshopRegistrationStatusEnum::Confirmed
+                : WorkshopRegistrationStatusEnum::WaitingList;
+
+            return WorkshopRegistration::query()->create([
+                'workshop_id' => $workshop->id,
+                'user_id' => $subject->id,
+                'status' => $status,
+            ]);
+        });
+    }
+
+    private function assertNoScheduleOverlapWithExistingRegistrations(User $user, Workshop $workshop, bool $adminSubject): void
     {
         $otherRegistrations = WorkshopRegistration::query()
             ->where('user_id', $user->id)
@@ -65,7 +103,9 @@ class WorkshopRegistrationService
             }
 
             if ($this->workshopIntervalsOverlap($workshop, $otherWorkshop)) {
-                throw WorkshopRegistrationException::scheduleOverlap();
+                throw $adminSubject
+                    ? WorkshopRegistrationException::subjectScheduleOverlap()
+                    : WorkshopRegistrationException::scheduleOverlap();
             }
         }
     }

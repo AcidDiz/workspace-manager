@@ -4,6 +4,9 @@ use App\Http\Controllers\Admin\Workshops\WorkshopCreateController;
 use App\Http\Controllers\Admin\Workshops\WorkshopDestroyController;
 use App\Http\Controllers\Admin\Workshops\WorkshopEditController;
 use App\Http\Controllers\Admin\Workshops\WorkshopIndexController as AdminWorkshopIndexController;
+use App\Http\Controllers\Admin\Workshops\WorkshopParticipantAttachController;
+use App\Http\Controllers\Admin\Workshops\WorkshopParticipantDetachController;
+use App\Http\Controllers\Admin\Workshops\WorkshopShowController;
 use App\Http\Controllers\Admin\Workshops\WorkshopStoreController;
 use App\Http\Controllers\Admin\Workshops\WorkshopUpdateController;
 use App\Http\Controllers\App\Workshops\WorkshopIndexController as AppWorkshopIndexController;
@@ -43,6 +46,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::get('workshops/create', WorkshopCreateController::class)->name('workshops.create');
                 Route::post('workshops', WorkshopStoreController::class)->name('workshops.store');
             });
+
+            Route::get('workshops/{workshop}', WorkshopShowController::class)
+                ->middleware(['can:update,workshop'])
+                ->name('workshops.show');
+
+            Route::post('workshops/{workshop}/participants', WorkshopParticipantAttachController::class)
+                ->middleware(['can:update,workshop'])
+                ->name('workshops.participants.attach');
+
+            Route::delete('workshops/{workshop}/participants', WorkshopParticipantDetachController::class)
+                ->middleware(['can:update,workshop'])
+                ->name('workshops.participants.detach');
 
             Route::get('workshops/{workshop}/edit', WorkshopEditController::class)
                 ->middleware(['can:update,workshop'])
