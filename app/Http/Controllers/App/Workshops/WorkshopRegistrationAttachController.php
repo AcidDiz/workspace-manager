@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\App\Workshops;
 
+use App\Enums\Workshop\WorkshopRegistrationStatusEnum;
 use App\Exceptions\Workshop\WorkshopRegistrationException;
 use App\Http\Controllers\Controller;
 use App\Models\Workshop;
@@ -25,7 +26,7 @@ class WorkshopRegistrationAttachController extends Controller
         assert($user !== null);
 
         try {
-            $this->workshopRegistrationService->attach($user, $workshop);
+            $registration = $this->workshopRegistrationService->attach($user, $workshop);
         } catch (WorkshopRegistrationException $exception) {
             Inertia::flash('toast', [
                 'type' => 'error',
@@ -35,9 +36,13 @@ class WorkshopRegistrationAttachController extends Controller
             return back();
         }
 
+        $message = $registration->status === WorkshopRegistrationStatusEnum::WaitingList
+            ? __('You have been added to the waiting list. We will notify you if a seat opens.')
+            : __('You are registered for this workshop.');
+
         Inertia::flash('toast', [
             'type' => 'success',
-            'message' => __('You are registered for this workshop.'),
+            'message' => $message,
         ]);
 
         return back();
