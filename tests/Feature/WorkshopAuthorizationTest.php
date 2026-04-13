@@ -105,12 +105,14 @@ test('shared inertia auth exposes workshop permission flags', function () {
     $employee->assignRole('employee');
 
     $this->actingAs($admin)
+        ->followingRedirects()
         ->get(route('dashboard'))
         ->assertInertia(fn (Assert $page) => $page
             ->where('auth.workshop_permissions.view', true)
             ->where('auth.workshop_permissions.manage', true));
 
     $this->actingAs($employee)
+        ->followingRedirects()
         ->get(route('dashboard'))
         ->assertInertia(fn (Assert $page) => $page
             ->where('auth.workshop_permissions.view', true)
