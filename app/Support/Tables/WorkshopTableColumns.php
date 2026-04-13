@@ -2,6 +2,9 @@
 
 namespace App\Support\Tables;
 
+use App\Enums\Workshop\WorkshopStatusEnum;
+use App\Http\Resources\User\FilterSelectOptionResource as UserFilterSelectOptionResource;
+use App\Http\Resources\WorkshopCategory\WorkshopCategoryFilterSelectOptionResource;
 use App\Models\User;
 use App\Models\WorkshopCategory;
 use Illuminate\Support\Collection;
@@ -17,21 +20,11 @@ class WorkshopTableColumns
      */
     public static function adminTable(Collection $categories, Collection $creators): array
     {
-        $categoryOptions = $categories->map(fn ($c) => [
-            'value' => (string) $c->id,
-            'label' => $c->name,
-        ])->values()->all();
+        $categoryOptions = WorkshopCategoryFilterSelectOptionResource::collection($categories)->resolve();
 
-        $creatorOptions = $creators->map(fn ($u) => [
-            'value' => (string) $u->id,
-            'label' => $u->name,
-        ])->values()->all();
+        $creatorOptions = UserFilterSelectOptionResource::collection($creators)->resolve();
 
-        $statusOptions = [
-            ['value' => 'all', 'label' => 'Upcoming and closed'],
-            ['value' => 'upcoming', 'label' => 'Upcoming'],
-            ['value' => 'closed', 'label' => 'Closed'],
-        ];
+        $statusOptions = WorkshopStatusEnum::filterSelectOptions();
 
         return [
             [
@@ -92,61 +85,12 @@ class WorkshopTableColumns
                 'sortable' => true,
                 'default_sort' => 'asc',
             ],
-        ];
-    }
-
-    /**
-     * Employee card toolbar: subset of filters (no created_by).
-     *
-     * @param  Collection<int, WorkshopCategory>  $categories
-     * @return list<array<string, mixed>>
-     */
-    public static function employeeFilters(Collection $categories): array
-    {
-        $categoryOptions = $categories->map(fn ($c) => [
-            'value' => (string) $c->id,
-            'label' => $c->name,
-        ])->values()->all();
-
-        $statusOptions = [
-            ['value' => 'all', 'label' => 'Upcoming and closed'],
-            ['value' => 'upcoming', 'label' => 'Upcoming'],
-            ['value' => 'closed', 'label' => 'Closed'],
-        ];
-
-        return [
             [
-                'field_name' => 'category.name',
-                'label' => 'Category',
-                'placeholder' => 'Select Category',
-                'cast_type' => 'string',
-                'input_type' => 'select',
-                'filterable' => true,
-                'filter_param' => 'category_id',
-                'options' => $categoryOptions,
-                'sortable' => false,
-                'default_sort' => null,
-            ],
-            [
-                'field_name' => 'starts_at',
-                'label' => 'Starts on',
-                'placeholder' => 'Date',
-                'cast_type' => 'datetime',
-                'input_type' => 'date',
-                'filterable' => true,
-                'filter_param' => 'starts_on',
-                'sortable' => false,
-                'default_sort' => null,
-            ],
-            [
-                'field_name' => 'timing_status',
-                'label' => 'Timing',
-                'placeholder' => 'Select Status',
-                'cast_type' => 'workshop_timing',
-                'input_type' => 'select',
-                'filterable' => true,
-                'filter_param' => 'status',
-                'options' => $statusOptions,
+                'field_name' => '_actions',
+                'label' => 'Actions',
+                'cast_type' => 'actions',
+                'input_type' => null,
+                'filterable' => false,
                 'sortable' => false,
                 'default_sort' => null,
             ],
