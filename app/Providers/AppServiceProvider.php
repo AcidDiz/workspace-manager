@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use App\Models\Workshop;
+use App\Models\WorkshopRegistration;
+use App\Observers\BroadcastWorkshopAdminStatisticsObserver;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Mail\Events\MessageSending;
@@ -30,6 +33,9 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->configureDefaults();
         $this->configureOutgoingMailLogging();
+
+        Workshop::observe(BroadcastWorkshopAdminStatisticsObserver::class);
+        WorkshopRegistration::observe(BroadcastWorkshopAdminStatisticsObserver::class);
     }
 
     /**
