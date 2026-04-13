@@ -37,9 +37,10 @@ class WorkshopIndexController extends Controller
         }
 
         $workshopList = $workshops->map(function (Workshop $workshop) use ($request, $registrationByWorkshopId) {
-            $status = $registrationByWorkshopId->get($workshop->id)?->status;
+            $resource = new WorkshopListItemResource($workshop);
+            $resource->myRegistrationStatus = $registrationByWorkshopId->get($workshop->id)?->status;
 
-            return (new WorkshopListItemResource($workshop, $status))->resolve($request);
+            return $resource->resolve($request);
         })->all();
 
         return Inertia::render('app/workshops/Index', [

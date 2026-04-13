@@ -13,12 +13,11 @@ use Illuminate\Http\Resources\Json\JsonResource;
  */
 class WorkshopListItemResource extends JsonResource
 {
-    public function __construct(
-        $resource,
-        private ?WorkshopRegistrationStatusEnum $myRegistrationStatus = null,
-    ) {
-        parent::__construct($resource);
-    }
+    /**
+     * App index only. {@see JsonResource::collection()} invokes `new static($model, $key)`,
+     * so user registration status cannot be a constructor argument.
+     */
+    public ?WorkshopRegistrationStatusEnum $myRegistrationStatus = null;
 
     /**
      * @return array<string, mixed>
