@@ -16,8 +16,8 @@ class WorkshopRegistrationException extends DomainException
         return new self(__('You are already registered for this workshop.'));
     }
 
-    public static function full(): self
+    public static function scheduleOverlap(): self
     {
-        return new self(__('This workshop is full.'));
+        return new self(__('You already have a registration that overlaps this workshop time.'));
     }
 }

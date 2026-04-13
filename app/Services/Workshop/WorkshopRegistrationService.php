@@ -30,20 +30,51 @@ class WorkshopRegistrationService
                 throw WorkshopRegistrationException::alreadyRegistered();
             }
 
+            $this->assertNoScheduleOverlapWithExistingRegistrations($user, $workshop);
+
             $confirmedCount = WorkshopRegistration::query()
                 ->where('workshop_id', $workshop->id)
                 ->where('status', WorkshopRegistrationStatusEnum::Confirmed)
                 ->count();
 
-            if ($confirmedCount >= $workshop->capacity) {
-                throw WorkshopRegistrationException::full();
-            }
+            $status = $confirmedCount < $workshop->capacity
+                ? WorkshopRegistrationStatusEnum::Confirmed
+                : WorkshopRegistrationStatusEnum::WaitingList;
 
             return WorkshopRegistration::query()->create([
                 'workshop_id' => $workshop->id,
                 'user_id' => $user->id,
-                'status' => WorkshopRegistrationStatusEnum::Confirmed,
+                'status' => $status,
             ]);
         });
+    }
+
+    private function assertNoScheduleOverlapWithExistingRegistrations(User $user, Workshop $workshop): void
+    {
+        $otherRegistrations = WorkshopRegistration::query()
+            ->where('user_id', $user->id)
+            ->where('workshop_id', '!=', $workshop->id)
+            ->with('workshop')
+            ->lockForUpdate()
+            ->get();
+
+        foreach ($otherRegistrations as $registration) {
+            $otherWorkshop = $registration->workshop;
+            if ($otherWorkshop === null) {
+                continue;
+            }
+
+            if ($this->workshopIntervalsOverlap($workshop, $otherWorkshop)) {
+                throw WorkshopRegistrationException::scheduleOverlap();
+            }
+        }
+    }
+
+    /**
+     * Standard interval overlap on [starts_at, ends_at).
+     */
+    private function workshopIntervalsOverlap(Workshop $a, Workshop $b): bool
+    {
+        return $a->starts_at->lt($b->ends_at) && $b->starts_at->lt($a->ends_at);
     }
 }
