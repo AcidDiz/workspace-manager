@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Enums\WorkshopRegistrationStatus;
+use App\Enums\Workshop\WorkshopRegistrationStatusEnum;
 use Database\Factories\WorkshopRegistrationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -22,7 +22,7 @@ class WorkshopRegistration extends Model
     protected function casts(): array
     {
         return [
-            'status' => WorkshopRegistrationStatus::class,
+            'status' => WorkshopRegistrationStatusEnum::class,
         ];
     }
 
@@ -32,7 +32,7 @@ class WorkshopRegistration extends Model
      */
     public function scopeConfirmed(Builder $query): Builder
     {
-        return $query->where('status', WorkshopRegistrationStatus::Confirmed);
+        return $query->where('status', WorkshopRegistrationStatusEnum::Confirmed);
     }
 
     /**
@@ -41,7 +41,7 @@ class WorkshopRegistration extends Model
      */
     public function scopeWaitingList(Builder $query): Builder
     {
-        return $query->where('status', WorkshopRegistrationStatus::WaitingList);
+        return $query->where('status', WorkshopRegistrationStatusEnum::WaitingList);
     }
 
     /** @return BelongsTo<Workshop, $this> */

@@ -1,6 +1,6 @@
 <?php
 
-use App\Enums\WorkshopRegistrationStatus;
+use App\Enums\Workshop\WorkshopRegistrationStatusEnum;
 use App\Models\User;
 use App\Models\Workshop;
 use App\Models\WorkshopRegistration;
@@ -22,7 +22,7 @@ test('workshop belongs to creator and lists registrations', function () {
     WorkshopRegistration::create([
         'workshop_id' => $workshop->id,
         'user_id' => $attendee->id,
-        'status' => WorkshopRegistrationStatus::Confirmed,
+        'status' => WorkshopRegistrationStatusEnum::Confirmed,
     ]);
 
     expect($workshop->creator)->toBeInstanceOf(User::class)
@@ -52,13 +52,13 @@ test('duplicate registration for same workshop and user violates unique constrai
     WorkshopRegistration::create([
         'workshop_id' => $workshop->id,
         'user_id' => $user->id,
-        'status' => WorkshopRegistrationStatus::Confirmed,
+        'status' => WorkshopRegistrationStatusEnum::Confirmed,
     ]);
 
     expect(fn () => WorkshopRegistration::create([
         'workshop_id' => $workshop->id,
         'user_id' => $user->id,
-        'status' => WorkshopRegistrationStatus::WaitingList,
+        'status' => WorkshopRegistrationStatusEnum::WaitingList,
     ]))->toThrow(QueryException::class);
 });
 
@@ -130,13 +130,13 @@ test('confirmed and waiting list scopes filter registrations by status', functio
     WorkshopRegistration::create([
         'workshop_id' => $workshop->id,
         'user_id' => User::factory()->create()->id,
-        'status' => WorkshopRegistrationStatus::Confirmed,
+        'status' => WorkshopRegistrationStatusEnum::Confirmed,
     ]);
 
     WorkshopRegistration::create([
         'workshop_id' => $workshop->id,
         'user_id' => User::factory()->create()->id,
-        'status' => WorkshopRegistrationStatus::WaitingList,
+        'status' => WorkshopRegistrationStatusEnum::WaitingList,
     ]);
 
     expect(WorkshopRegistration::query()->confirmed()->count())->toBe(1)

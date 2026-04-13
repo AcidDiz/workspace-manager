@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Enums;
+namespace App\Enums\Workshop;
 
-enum WorkshopRegistrationStatus: string
+enum WorkshopRegistrationStatusEnum: string
 {
     case Confirmed = 'confirmed';
     case WaitingList = 'waiting_list';

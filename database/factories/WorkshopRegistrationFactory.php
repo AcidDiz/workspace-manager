@@ -2,7 +2,7 @@
 
 namespace Database\Factories;
 
-use App\Enums\WorkshopRegistrationStatus;
+use App\Enums\Workshop\WorkshopRegistrationStatusEnum;
 use App\Models\User;
 use App\Models\Workshop;
 use App\Models\WorkshopRegistration;
@@ -23,21 +23,21 @@ class WorkshopRegistrationFactory extends Factory
         return [
             'workshop_id' => Workshop::factory(),
             'user_id' => User::factory(),
-            'status' => fake()->randomElement(WorkshopRegistrationStatus::cases()),
+            'status' => fake()->randomElement(WorkshopRegistrationStatusEnum::cases()),
         ];
     }
 
     public function confirmed(): static
     {
         return $this->state(fn (array $attributes) => [
-            'status' => WorkshopRegistrationStatus::Confirmed,
+            'status' => WorkshopRegistrationStatusEnum::Confirmed,
         ]);
     }
 
     public function waitingList(): static
     {
         return $this->state(fn (array $attributes) => [
-            'status' => WorkshopRegistrationStatus::WaitingList,
+            'status' => WorkshopRegistrationStatusEnum::WaitingList,
         ]);
     }
 }

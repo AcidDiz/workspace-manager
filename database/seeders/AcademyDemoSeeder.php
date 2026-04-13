@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-use App\Enums\WorkshopRegistrationStatus;
+use App\Enums\Workshop\WorkshopRegistrationStatusEnum;
 use App\Models\User;
 use App\Models\Workshop;
 use App\Models\WorkshopCategory;
@@ -138,17 +138,17 @@ class AcademyDemoSeeder extends Seeder
             WorkshopRegistration::create([
                 'workshop_id' => $workshop->id,
                 'user_id' => $e0->id,
-                'status' => WorkshopRegistrationStatus::Confirmed,
+                'status' => WorkshopRegistrationStatusEnum::Confirmed,
             ]);
             WorkshopRegistration::create([
                 'workshop_id' => $workshop->id,
                 'user_id' => $e1->id,
-                'status' => WorkshopRegistrationStatus::Confirmed,
+                'status' => WorkshopRegistrationStatusEnum::Confirmed,
             ]);
             WorkshopRegistration::create([
                 'workshop_id' => $workshop->id,
                 'user_id' => $e2->id,
-                'status' => WorkshopRegistrationStatus::Confirmed,
+                'status' => WorkshopRegistrationStatusEnum::Confirmed,
             ]);
 
             return;
@@ -158,17 +158,17 @@ class AcademyDemoSeeder extends Seeder
             WorkshopRegistration::create([
                 'workshop_id' => $workshop->id,
                 'user_id' => $e0->id,
-                'status' => WorkshopRegistrationStatus::Confirmed,
+                'status' => WorkshopRegistrationStatusEnum::Confirmed,
             ]);
             WorkshopRegistration::create([
                 'workshop_id' => $workshop->id,
                 'user_id' => $e1->id,
-                'status' => WorkshopRegistrationStatus::Confirmed,
+                'status' => WorkshopRegistrationStatusEnum::Confirmed,
             ]);
             WorkshopRegistration::create([
                 'workshop_id' => $workshop->id,
                 'user_id' => $e2->id,
-                'status' => WorkshopRegistrationStatus::WaitingList,
+                'status' => WorkshopRegistrationStatusEnum::WaitingList,
             ]);
 
             return;
@@ -178,12 +178,12 @@ class AcademyDemoSeeder extends Seeder
         WorkshopRegistration::create([
             'workshop_id' => $workshop->id,
             'user_id' => $e0->id,
-            'status' => WorkshopRegistrationStatus::Confirmed,
+            'status' => WorkshopRegistrationStatusEnum::Confirmed,
         ]);
         WorkshopRegistration::create([
             'workshop_id' => $workshop->id,
             'user_id' => $e1->id,
-            'status' => WorkshopRegistrationStatus::WaitingList,
+            'status' => WorkshopRegistrationStatusEnum::WaitingList,
         ]);
     }
 }
