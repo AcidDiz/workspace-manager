@@ -1,6 +1,6 @@
 # Workshop domain (current implementation)
 
-This document describes **what exists in the codebase today**. Planned extensions (for example **waiting-list overflow** on full workshops, FIFO promotion, overlap rules) are referenced at the end—they must not be read as already shipped unless this file says so explicitly.
+This document describes **what exists in the codebase today**. Items that are still only planned are listed at the end under **Not implemented**.
 
 ## Purpose
 
@@ -20,7 +20,7 @@ For **HTTP routes, query parameters, and Inertia response props** for the worksh
 | `database/migrations/2026_04_12_094503_create_workshop_registrations_table.php` | Creates `workshop_registrations` with FKs and **unique** `(workshop_id, user_id)`.                                                               |
 | `app/Enums/Workshop/WorkshopRegistrationStatusEnum.php`                         | Backed enum: `confirmed`, `waiting_list` (`WorkshopRegistration` cast + scopes).                                                                  |
 | `app/Enums/Workshop/WorkshopStatusEnum.php`                                     | Backed enum: `all`, `upcoming`, `closed` for the index `status` query; `label()`, `filterSelectOptions()`, `badgeClassName()` (Tailwind) for timing badges. |
-| `app/Exceptions/Workshop/WorkshopRegistrationException.php`                     | Domain exception raised when **attach** cannot complete (`workshopClosed`, `alreadyRegistered`, `full`). Message is user-facing and flashed by the controller. |
+| `app/Exceptions/Workshop/WorkshopRegistrationException.php`                     | Domain exception when **attach** cannot complete (`workshopClosed`, `alreadyRegistered`, `scheduleOverlap`). Message is user-facing and flashed by the controller. |
 | `app/Models/WorkshopCategory.php`                                               | `HasFactory`; workshops relation.                                                                                                                |
 | `app/Models/Workshop.php`                                                       | `creator()`, `category()`, `registrations()`; `withConfirmedRegistrationCount()` (`confirmed_registrations_count` for confirmed seats); `casts()` for `starts_at` / `ends_at`; `HasFactory`. Query scopes are provided by two traits (see below), not declared on the class body. |
 | `app/Models/Scopes/Workshop/WorkshopFilterScopes.php`                           | Trait used by `Workshop`: `withIndexRelations` (`with category, creator`), `upcoming` / `closed` (by `starts_at` vs `now()`), `status` (maps `WorkshopStatusEnum` string values; `all` = no extra constraint), `filterCategoryId`, `searchTitle` (trimmed `LIKE`), `startsOn` (`whereDate`), `createdBy`. |
@@ -35,8 +35,8 @@ For **HTTP routes, query parameters, and Inertia response props** for the worksh
 | `database/seeders/AcademyDemoSeeder.php`                                        | Demo admin and employees, many workshops (mix upcoming/closed), registrations, category assignment.                                              |
 | `database/seeders/DatabaseSeeder.php`                                           | Calls `RolePermissionSeeder`, `WorkshopCategorySeeder`, then `AcademyDemoSeeder`.                                                                |
 | `app/Policies/WorkshopPolicy.php`                                               | `viewAny` / `view` require `workshops.view`; mutations require `workshops.manage`. **`attachRegistration`** / **`detachRegistration`** mirror `view` (self-service enrolment for viewers). |
-| `app/Services/Workshop/WorkshopRegistrationService.php`                         | **`attach(User, Workshop): WorkshopRegistration`**. Uses a DB transaction + row lock; throws `WorkshopRegistrationException` for closed / duplicate / full cases. |
-| `app/Services/Workshop/WorkshopCancellationService.php`                         | **`detach(User, Workshop): bool`**. Uses a DB transaction + row lock; returns `true` when a row was removed, `false` when nothing existed. |
+| `app/Services/Workshop/WorkshopRegistrationService.php`                         | **`attach(User, Workshop): WorkshopRegistration`**. Transaction + locks; private **`workshopIntervalsOverlap`** for schedule checks; rejects closed workshop, duplicate row, or overlap with any other registration for the user; creates **`confirmed`** if capacity remains, else **`waiting_list`**. |
+| `app/Services/Workshop/WorkshopCancellationService.php`                         | **`detach(User, Workshop): array{removed: bool, previous_status: ?WorkshopRegistrationStatusEnum}`**. Transaction + locks; deletes the user’s row if present; if previous status was **`confirmed`**, **`promoteFirstWaitingListMember`** (private; FIFO by `created_at`, `id`) in the same transaction. |
 | `app/Http/Controllers/App/Workshops/WorkshopRegistrationAttachController.php`    | Invokable: **`POST /app/workshops/{workshop}/registrations`**; flash toast; redirect back. |
 | `app/Http/Controllers/App/Workshops/WorkshopRegistrationDetachController.php` | Invokable: **`DELETE /app/workshops/{workshop}/registrations`**; flash toast; redirect back. |
 | `app/Http/Requests/Workshops/ListWorkshopsIndexRequest.php`                     | Validates query filters and admin-only sorting params (`sort`, `direction`); `status` via `Rule::enum(WorkshopStatusEnum::class)`. Does not force defaults into the query string. |
@@ -66,7 +66,7 @@ For **HTTP routes, query parameters, and Inertia response props** for the worksh
 | `resources/js/components/dialogs/ConfirmDeleteDialog.vue`                       | Reusable confirm dialog + Inertia `<Form>`; title, description, and form attributes from parent.                                                  |
 | `resources/js/components/tables/Table.vue`                                      | Generic index table + embedded `FiltersBar`; slot `#row-actions` for `cast_type === 'actions'` cells.                                             |
 | `resources/js/components/tables/FiltersBar.vue`                                 | Shared filter UI (query-string driven); props `fields` are **`FilterBarField`** (`param`, `label`, …). Table mode maps filterable `TableColumn` rows into that shape inside `Table.vue`. |
-| `resources/js/components/cards/WorkshopCard.vue`                                | Employee card: timing badge, **Register** (Inertia `Form` POST attach), **Full** when at capacity, **Cancel registration** (confirm dialog → detach). |
+| `resources/js/components/cards/WorkshopCard.vue`                                | Employee card: timing badge, waiting-list notice, **Register** / **Join waiting list** (same attach route), **Cancel registration** (confirm dialog → detach; copy depends on `waiting_list` vs `confirmed`). |
 | `resources/js/routes/app/workshops/registrations/index.ts`                    | Wayfinder output for **`app.workshops.registrations.attach`** / **`detach`** (`*.form()` for Inertia forms). |
 | `resources/js/components/badge/WorkshopStatusBadge.vue`                         | Pill badge: `label` + Tailwind `badgeClass` from list payload (`WorkshopStatusEnum` on the server). Used in `WorkshopCard` and admin `Table` timing column. |
 | `resources/js/types/models/workshop.ts`                                         | `WorkshopListItem`, `WorkshopPermissions`, `WorkshopCategoryOption`, `WorkshopFormPayload`.                                                        |
@@ -122,17 +122,16 @@ For how tests are organised and executed across the app, see [`tests.md`](tests.
 | `tests/Feature/WorkshopIndexTest.php`         | Guest redirect; authenticated user with `workshops.view` sees Inertia shape (employee path). |
 | `tests/Feature/WorkshopAuthorizationTest.php` | 403 without permission; policy; shared props; admin table mode and sorting via query string. |
 | `tests/Feature/AdminWorkshopManagementTest.php` | Admin CRUD: store/update/destroy, validation failures, employee forbidden on admin mutations, Inertia create/edit pages, cascade delete of registrations. |
-| `tests/Feature/WorkshopRegistrationFlowTest.php` | Attach/detach HTTP flows: success, duplicate, full, closed workshop, idempotent detach, 403 without permission, `my_registration_status` on app index. |
-| `tests/Feature/Services/WorkshopRegistrationServiceTest.php` | Service-level attach rules (capacity, closed, duplicate). |
-| `tests/Feature/Services/WorkshopCancellationServiceTest.php` | Service-level detach (removed vs not registered). |
+| `tests/Feature/WorkshopRegistrationFlowTest.php` | Attach/detach HTTP: confirmed + **waiting list**, FIFO promotion on cancel, **overlap** rejection, waiting-list detach, idempotent detach, 403, `my_registration_status`. |
+| `tests/Feature/Services/WorkshopRegistrationServiceTest.php` | Attach: capacity → confirmed vs waiting list, overlap, closed, duplicate; reflection tests for private interval overlap helper. |
+| `tests/Feature/Services/WorkshopCancellationServiceTest.php` | Detach result object, FIFO promotion when cancelling **confirmed**, no promotion when cancelling **waiting_list**. |
 | `tests/Browser/AdminWorkshopBrowserTest.php` | After login: open create page; edit workshop from admin table; delete workshop via confirm dialog (assert row gone + model deleted). |
+| `tests/Browser/AppWorkshopsRegistrationBrowserTest.php` | Employee: register, cancel with toast, **join waiting list** (`1/1 enrolled`), **overlap** error toast. |
 | `tests/Feature/AcademyDemoSeederTest.php`     | After `DatabaseSeeder`, roles, users, workshop and registration counts and states.           |
 | `tests/Feature/SeededWorkshopsPageTest.php`   | After seed, demo workshop titles present in Inertia props for a demo admin user.             |
 
 ## Not implemented (planned / out of scope)
 
 - Public **REST JSON API** for workshops (the app is web + session + Inertia).
-- **Waiting-list overflow** when a workshop is full (attach currently returns an error; **`waiting_list`** exists on the model for demo/seed and future FIFO work).
-- **Overlap rules** blocking conflicting registrations for the same user (see workspace TODO07).
 
 Roadmap items may appear in workspace `docs/todo/` files if your checkout includes them; those files are not the canonical behaviour spec for this app module.

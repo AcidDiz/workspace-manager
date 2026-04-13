@@ -108,15 +108,15 @@ Invalid query values result in a normal Laravel validation response (typically *
 
 - **`POST /app/workshops/{workshop}/registrations`** (`app.workshops.registrations.attach`).
 - Authorizes `attachRegistration` on the bound workshop.
-- Delegates to **`App\Services\Workshop\WorkshopRegistrationService::attach`**: requires `starts_at` in the future, no existing row for `(workshop, user)`, and **confirmed** count strictly below `capacity` (waiting-list overflow is **TODO07**; full workshops return an error flash).
-- **`302`** back to the previous URL (typically the app index) with **`Inertia::flash('toast', …)`** (`success` or `error`).
+- Delegates to **`App\Services\Workshop\WorkshopRegistrationService::attach`**: requires `starts_at` in the future, no existing row for `(workshop, user)`, **no time overlap** with any other workshop registration for that user, then creates **`confirmed`** if confirmed count is below `capacity`, otherwise **`waiting_list`**.
+- **`302`** back to the previous URL (typically the app index) with **`Inertia::flash('toast', …)`** (`success` with message depending on `confirmed` vs `waiting_list`, or `error` for domain failures including overlap).
 
 ### `App\Http\Controllers\App\Workshops\WorkshopRegistrationDetachController`
 
 - **`DELETE /app/workshops/{workshop}/registrations`** (`app.workshops.registrations.detach`; Inertia forms use `_method=DELETE`).
 - Authorizes `detachRegistration` on the bound workshop.
-- Delegates to **`App\Services\Workshop\WorkshopCancellationService::detach`**: deletes the current user’s registration if present (**idempotent** if already absent).
-- **`302`** back with **`Inertia::flash('toast', …)`** (`success` when a row was removed, `info` when the user was not registered).
+- Delegates to **`App\Services\Workshop\WorkshopCancellationService::detach`**: deletes the current user’s registration if present (**idempotent** if already absent). Cancelling a **`confirmed`** seat may promote one **`waiting_list`** row to **`confirmed`** in the same transaction (FIFO by `created_at`, `id`), via private logic on the cancellation service.
+- **`302`** back with **`Inertia::flash('toast', …)`** (`success` when removed — message differs for waiting list vs confirmed — or `info` when the user was not registered).
 
 ### `App\Http\Controllers\Admin\Workshops\WorkshopIndexController`
 
