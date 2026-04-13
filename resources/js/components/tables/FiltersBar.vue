@@ -1,21 +1,21 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3';
 import { reactive, watch } from 'vue';
-import type { WorkshopTableColumn } from '@/components/tables/types';
+import type { FilterBarField } from '@/components/tables/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 const props = defineProps<{
-    fields: WorkshopTableColumn[];
+    fields: FilterBarField[];
     filters: Record<string, unknown>;
     indexUrl: (query: Record<string, string>) => string;
 }>();
 
 const local = reactive<Record<string, string>>({});
 
-function paramKey(column: WorkshopTableColumn): string {
-    return column.filter_param ?? column.field_name;
+function paramKey(field: FilterBarField): string {
+    return field.param;
 }
 
 function syncFromProps(): void {
@@ -23,8 +23,8 @@ function syncFromProps(): void {
         delete local[key];
     }
 
-    for (const column of props.fields) {
-        const key = paramKey(column);
+    for (const field of props.fields) {
+        const key = paramKey(field);
         const raw = props.filters[key];
         local[key] =
             raw === null || raw === undefined ? '' : String(raw);
@@ -83,37 +83,37 @@ function reset(): void {
         @submit.prevent="apply"
     >
         <div
-            v-for="column in fields"
-            :key="paramKey(column)"
+            v-for="field in fields"
+            :key="paramKey(field)"
             class="space-y-1.5"
         >
-            <Label :for="`wf-${paramKey(column)}`">{{ column.label }}</Label>
+            <Label :for="`filters-${paramKey(field)}`">{{ field.label }}</Label>
 
             <Input
                 v-if="
-                    column.input_type === 'text' ||
-                    column.input_type === 'date' ||
-                    !column.input_type
+                    field.input_type === 'text' ||
+                    field.input_type === 'date' ||
+                    !field.input_type
                 "
-                :id="`wf-${paramKey(column)}`"
-                :type="column.input_type === 'date' ? 'date' : 'text'"
-                :placeholder="column.placeholder ?? ''"
-                v-model="local[paramKey(column)]"
+                :id="`filters-${paramKey(field)}`"
+                :type="field.input_type === 'date' ? 'date' : 'text'"
+                :placeholder="field.placeholder ?? ''"
+                v-model="local[paramKey(field)]"
                 class="h-9"
                 @keydown.enter.prevent="apply"
             />
 
             <select
-                v-else-if="column.input_type === 'select'"
-                :id="`wf-${paramKey(column)}`"
-                v-model="local[paramKey(column)]"
+                v-else-if="field.input_type === 'select'"
+                :id="`filters-${paramKey(field)}`"
+                v-model="local[paramKey(field)]"
                 class="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
             >
                 <option value="">
-                    {{ column.placeholder ?? 'Select…' }}
+                    {{ field.placeholder ?? 'Select…' }}
                 </option>
                 <option
-                    v-for="opt in column.options ?? []"
+                    v-for="opt in field.options ?? []"
                     :key="String(opt.value)"
                     :value="String(opt.value)"
                 >

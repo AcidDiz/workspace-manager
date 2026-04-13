@@ -1,28 +1,53 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3';
-import type { WorkshopTableColumn } from '@/components/tables/types';
-import {
-    formatWorkshopCellValue,
-    getNestedValue,
-} from '@/components/tables/utils';
-import WorkshopsFilterBar from '@/components/tables/WorkshopsFilterBar.vue';
+import { computed, useSlots } from 'vue';
+import type { FilterBarField, TableColumn } from '@/components/tables/types';
+import { formatTableCellValue, getNestedValue } from '@/components/tables/utils';
+import FiltersBar from '@/components/tables/FiltersBar.vue';
 
-const props = defineProps<{
-    columns: WorkshopTableColumn[];
-    rows: Record<string, unknown>[];
-    filters: Record<string, unknown>;
-    indexUrl: (query: Record<string, string>) => string;
-}>();
+const props = withDefaults(
+    defineProps<{
+        columns: TableColumn[];
+        rows: Record<string, unknown>[];
+        filters: Record<string, unknown>;
+        indexUrl: (query: Record<string, string>) => string;
+        /** When true and `#row-actions` is provided, render the slot for `cast_type === 'actions'` cells. */
+        showManageActions?: boolean;
+        emptyMessage?: string;
+    }>(),
+    {
+        showManageActions: false,
+        emptyMessage: 'No rows match the current filters.',
+    },
+);
 
-function isSortedBy(column: WorkshopTableColumn): boolean {
+const slots = useSlots();
+
+const filterBarFields = computed((): FilterBarField[] =>
+    props.columns
+        .filter((column) => column.filterable)
+        .map((column) => ({
+            param: column.filter_param ?? column.field_name,
+            label: column.label,
+            placeholder: column.placeholder,
+            input_type: column.input_type,
+            options: column.options,
+        })),
+);
+
+const hasRowActionsSlot = computed(() => Boolean(slots['row-actions']));
+
+function isSortedBy(column: TableColumn): boolean {
     return props.filters.sort === column.field_name;
 }
 
 function currentDirection(): 'asc' | 'desc' | null {
     const raw = props.filters.direction;
+
     if (raw === 'asc' || raw === 'desc') {
         return raw;
     }
+
     return null;
 }
 
@@ -33,6 +58,7 @@ function buildQuery(overrides: Record<string, string | null>): Record<string, st
         if (value === null || value === undefined || value === '') {
             continue;
         }
+
         query[key] = String(value);
     }
 
@@ -41,13 +67,14 @@ function buildQuery(overrides: Record<string, string | null>): Record<string, st
             delete query[key];
             continue;
         }
+
         query[key] = value;
     }
 
     return query;
 }
 
-function toggleSort(column: WorkshopTableColumn): void {
+function toggleSort(column: TableColumn): void {
     if (!column.sortable) {
         return;
     }
@@ -57,13 +84,16 @@ function toggleSort(column: WorkshopTableColumn): void {
 
     if (!sortedByThis) {
         router.get(
-            props.indexUrl(buildQuery({
-                sort: column.field_name,
-                direction: String(column.default_sort ?? 'asc'),
-            })),
+            props.indexUrl(
+                buildQuery({
+                    sort: column.field_name,
+                    direction: String(column.default_sort ?? 'asc'),
+                }),
+            ),
             {},
             { preserveState: true, preserveScroll: true, replace: true },
         );
+
         return;
     }
 
@@ -73,6 +103,7 @@ function toggleSort(column: WorkshopTableColumn): void {
             {},
             { preserveState: true, preserveScroll: true, replace: true },
         );
+
         return;
     }
 
@@ -86,15 +117,19 @@ function toggleSort(column: WorkshopTableColumn): void {
 
 <template>
     <div class="flex flex-col gap-4">
-        <WorkshopsFilterBar
-            :fields="columns"
+        <FiltersBar
+            :fields="filterBarFields"
             :filters="filters"
             :index-url="indexUrl"
         />
 
-        <div class="overflow-x-auto rounded-md border border-sidebar-border/60 dark:border-sidebar-border">
+        <div
+            class="overflow-x-auto rounded-md border border-sidebar-border/60 dark:border-sidebar-border"
+        >
             <table class="w-full min-w-[720px] text-left text-sm">
-                <thead class="border-b border-sidebar-border/60 bg-muted/40 dark:border-sidebar-border">
+                <thead
+                    class="border-b border-sidebar-border/60 bg-muted/40 dark:border-sidebar-border"
+                >
                     <tr>
                         <th
                             v-for="col in columns"
@@ -122,7 +157,7 @@ function toggleSort(column: WorkshopTableColumn): void {
                             :colspan="columns.length || 1"
                             class="px-3 py-8 text-center text-muted-foreground"
                         >
-                            No workshops match the current filters.
+                            {{ emptyMessage }}
                         </td>
                     </tr>
                     <tr
@@ -136,12 +171,24 @@ function toggleSort(column: WorkshopTableColumn): void {
                             :key="col.field_name"
                             class="whitespace-nowrap px-3 py-2 align-top"
                         >
-                            {{
-                                formatWorkshopCellValue(
-                                    getNestedValue(row, col.field_name),
-                                    col,
-                                )
-                            }}
+                            <template
+                                v-if="
+                                    col.cast_type === 'actions' &&
+                                    showManageActions &&
+                                    hasRowActionsSlot
+                                "
+                            >
+                                <slot name="row-actions" :row="row" />
+                            </template>
+                            <template v-else-if="col.cast_type === 'actions'" />
+                            <template v-else>
+                                {{
+                                    formatTableCellValue(
+                                        getNestedValue(row, col.field_name),
+                                        col,
+                                    )
+                                }}
+                            </template>
                         </td>
                     </tr>
                 </tbody>

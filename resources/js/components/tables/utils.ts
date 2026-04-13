@@ -1,4 +1,4 @@
-import type { WorkshopTableColumn } from '@/components/tables/types';
+import type { TableColumn } from '@/components/tables/types';
 
 const toSnakeCase = (value: string): string =>
     value.replace(/([a-z])([A-Z])/g, '$1_$2').toLowerCase();
@@ -24,10 +24,7 @@ export function getNestedValue(
     }, row);
 }
 
-export function formatWorkshopCellValue(
-    value: unknown,
-    column: WorkshopTableColumn,
-): string {
+export function formatTableCellValue(value: unknown, column: TableColumn): string {
     if (value === null || value === undefined || value === '') {
         return '—';
     }
@@ -50,3 +47,6 @@ export function formatWorkshopCellValue(
 
     return String(value);
 }
+
+/** @deprecated Use formatTableCellValue */
+export const formatWorkshopCellValue = formatTableCellValue;

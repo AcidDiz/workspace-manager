@@ -28,3 +28,20 @@ export type WorkshopPermissions = {
     view: boolean;
     manage: boolean;
 };
+
+/** Category row for admin workshop forms (Inertia `categories` prop). */
+export type WorkshopCategoryOption = {
+    id: number;
+    name: string;
+};
+
+/** Payload for editing a workshop (`WorkshopFormResource`). */
+export type WorkshopFormPayload = {
+    id: number;
+    title: string;
+    description: string | null;
+    workshop_category_id: number | null;
+    starts_at: string;
+    ends_at: string;
+    capacity: number;
+};

@@ -2,17 +2,15 @@
 import { Head } from "@inertiajs/vue3";
 import WorkshopCard from "@/components/cards/WorkshopCard.vue";
 import Heading from "@/components/Heading.vue";
-import type { WorkshopTableColumn } from "@/components/tables/types";
-import WorkshopsFilterBar from "@/components/tables/WorkshopsFilterBar.vue";
+import FiltersBar from "@/components/tables/FiltersBar.vue";
+import type { FilterBarField } from "@/components/tables/types";
 import appWorkshops from "@/routes/app/workshops";
 import type { WorkshopListItem } from "@/types/models";
 
-const props = defineProps<{
+defineProps<{
   workshopList: WorkshopListItem[];
   filters: Record<string, unknown>;
-  showWorkshopTable: boolean;
-  workshopTableColumns: WorkshopTableColumn[];
-  employeeFilterFields: WorkshopTableColumn[];
+  cardFilterFields: FilterBarField[];
 }>();
 
 const indexUrl = (query: Record<string, string>) =>
@@ -39,8 +37,8 @@ defineOptions({
       description="Browse sessions by category, date, and timing. Upcoming rows are listed first."
     />
 
-    <WorkshopsFilterBar
-      :fields="employeeFilterFields"
+    <FiltersBar
+      :fields="cardFilterFields"
       :filters="filters"
       :index-url="indexUrl"
     />
