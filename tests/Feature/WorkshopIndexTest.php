@@ -28,7 +28,6 @@ test('authenticated users with workshops.view can view the workshops index', fun
             ->component('app/workshops/Index')
             ->has('workshopList', 1)
             ->where('workshopList.0.title', 'Visible session')
-            ->where('showWorkshopTable', false)
             ->where('filters.status', null)
-            ->has('employeeFilterFields'));
+            ->has('cardFilterFields', 3));
 });

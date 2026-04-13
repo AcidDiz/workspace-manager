@@ -31,8 +31,8 @@ test('employees with workshops.view may access the workshops index', function ()
         ->get(route('app.workshops.index'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('showWorkshopTable', false)
-            ->has('employeeFilterFields'));
+            ->missing('workshopTableColumns')
+            ->has('cardFilterFields'));
 });
 
 test('admins with workshops.manage receive table mode and column metadata', function () {
@@ -48,10 +48,12 @@ test('admins with workshops.manage receive table mode and column metadata', func
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('admin/workshops/Index')
-            ->where('showWorkshopTable', true)
+            ->missing('cardFilterFields')
             ->where('filters.status', null)
             ->has('workshopTableColumns')
-            ->where('workshopTableColumns.0.field_name', 'title'));
+            ->where('workshopTableColumns.0.field_name', 'title')
+            ->where('workshopTableColumns.5.field_name', '_actions')
+            ->where('workshopTableColumns.5.cast_type', 'actions'));
 });
 
 test('admins can sort the workshop list via query string', function () {
@@ -71,7 +73,6 @@ test('admins can sort the workshop list via query string', function () {
         ->get(route('admin.workshops.index', ['sort' => 'title', 'direction' => 'desc']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('showWorkshopTable', true)
             ->where('filters.sort', 'title')
             ->where('filters.direction', 'desc')
             ->where('workshopList.0.title', 'ZZZ'));

@@ -13,6 +13,6 @@ test('user can log in and reach the dashboard', function () {
         ->fill('password', 'password')
         ->click('Log in')
         ->assertPathIs('/dashboard')
-        ->assertTitle('Dashboard')
+        ->assertTitle('Dashboard - Workshop Manager')
         ->assertNoJavaScriptErrors();
 });

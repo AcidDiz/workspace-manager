@@ -18,6 +18,7 @@
         </include>
     </source>
     <php>
+        <!-- Pest Browser: zend.assertions must come from php.ini; Sail mounts docker/php/conf.d/zzz-pest-browser.ini (see compose.yaml). -->
         <env name="APP_ENV" value="testing"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>

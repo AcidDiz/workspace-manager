@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Pest\Browser\ServerManager;
 use Tests\TestCase;
 
 /*
@@ -22,7 +23,15 @@ pest()->extend(TestCase::class)
     ->use(LazilyRefreshDatabase::class)
     ->in('Feature');
 
-pest()->extend(TestCase::class)->in('Browser');
+pest()->extend(TestCase::class)
+    ->in('Browser')
+    ->beforeEach(function (): void {
+        // Browser tests ignore beforeEach() from this file alone (keyed to tests/Pest.php); UsesCall
+        // scopes this hook to tests/Browser. Ensure Playwright is up before connecting the client.
+        ServerManager::instance()->playwright()->start();
+
+        $this->__markAsBrowserTest();
+    });
 
 /*
 |--------------------------------------------------------------------------
