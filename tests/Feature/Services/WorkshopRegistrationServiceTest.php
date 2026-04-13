@@ -181,3 +181,40 @@ test('attach allows non overlapping workshops for the same user', function () {
     expect($second->status)->toBe(WorkshopRegistrationStatusEnum::Confirmed);
     expect(WorkshopRegistration::query()->where('user_id', $employee->id)->count())->toBe(2);
 });
+
+test('attachAsAdmin allows registration when the workshop is in the past', function () {
+    $admin = User::factory()->create();
+    $employee = User::factory()->create();
+
+    $startsAt = now()->subDay();
+    $workshop = Workshop::factory()->create([
+        'starts_at' => $startsAt,
+        'ends_at' => (clone $startsAt)->addHours(2),
+        'capacity' => 4,
+        'created_by' => $admin->id,
+    ]);
+
+    $service = app(WorkshopRegistrationService::class);
+    $registration = $service->attachAsAdmin($employee, $workshop);
+
+    expect($registration->status)->toBe(WorkshopRegistrationStatusEnum::Confirmed);
+});
+
+test('attachAsAdmin fails when the subject is already registered', function () {
+    $admin = User::factory()->create();
+    $employee = User::factory()->create();
+
+    $workshop = Workshop::factory()->upcoming()->create([
+        'capacity' => 4,
+        'created_by' => $admin->id,
+    ]);
+
+    WorkshopRegistration::factory()->confirmed()->create([
+        'workshop_id' => $workshop->id,
+        'user_id' => $employee->id,
+    ]);
+
+    $service = app(WorkshopRegistrationService::class);
+    expect(fn () => $service->attachAsAdmin($employee, $workshop))
+        ->toThrow(WorkshopRegistrationException::class, 'This user is already registered for this workshop.');
+});

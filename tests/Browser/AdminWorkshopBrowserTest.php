@@ -2,6 +2,7 @@
 
 use App\Models\User;
 use App\Models\Workshop;
+use App\Models\WorkshopRegistration;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 
@@ -76,4 +77,44 @@ test('admin can confirm delete workshop from the admin table', function () {
         ->assertNoJavaScriptErrors();
 
     expect(Workshop::query()->find($workshop->id))->toBeNull();
+});
+
+test('admin can add a participant from the workshop show page', function () {
+    $this->seed(RolePermissionSeeder::class);
+
+    $admin = User::factory()->create();
+    $admin->assignRole('admin');
+
+    $employee = User::factory()->create([
+        'name' => 'Browser E2E Employee',
+        'email' => 'browser-e2e-employee@example.com',
+    ]);
+    $employee->assignRole('employee');
+
+    $workshop = Workshop::factory()->upcoming()->create([
+        'title' => 'Browser Show Add Participant',
+        'capacity' => 5,
+        'created_by' => $admin->id,
+        'workshop_category_id' => null,
+    ]);
+
+    $this->actingAs($admin);
+
+    visit(route('admin.workshops.show', $workshop))
+        ->assertSee('Browser Show Add Participant')
+        ->assertSee('Add participant')
+        ->select('@workshop-show-add-participant-select', $employee->id)
+        ->click('@workshop-show-add-participant-submit')
+        ->assertPathIs('/admin/workshops/'.$workshop->id)
+        ->assertSee('User registered as a confirmed participant.')
+        ->assertSee('Browser E2E Employee')
+        ->assertSee('browser-e2e-employee@example.com')
+        ->assertNoJavaScriptErrors();
+
+    expect(
+        WorkshopRegistration::query()
+            ->where('workshop_id', $workshop->id)
+            ->where('user_id', $employee->id)
+            ->exists()
+    )->toBeTrue();
 });

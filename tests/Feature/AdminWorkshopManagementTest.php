@@ -163,6 +163,22 @@ test('employee cannot access admin workshop management routes', function () {
         ->assertForbidden();
 
     $this->actingAs($employee)
+        ->get(route('admin.workshops.show', $workshop))
+        ->assertForbidden();
+
+    $this->actingAs($employee)
+        ->post(route('admin.workshops.participants.attach', $workshop), [
+            'user_id' => $employee->id,
+        ])
+        ->assertForbidden();
+
+    $this->actingAs($employee)
+        ->delete(route('admin.workshops.participants.detach', $workshop), [
+            'user_id' => $employee->id,
+        ])
+        ->assertForbidden();
+
+    $this->actingAs($employee)
         ->get(route('admin.workshops.edit', $workshop))
         ->assertForbidden();
 
@@ -173,6 +189,170 @@ test('employee cannot access admin workshop management routes', function () {
     $this->actingAs($employee)
         ->delete(route('admin.workshops.destroy', $workshop))
         ->assertForbidden();
+});
+
+test('admin can view workshop show with participants ordered confirmed before waiting list', function () {
+    $admin = User::factory()->create();
+    $admin->assignRole('admin');
+
+    $workshop = Workshop::factory()->upcoming()->create([
+        'created_by' => $admin->id,
+        'capacity' => 10,
+    ]);
+
+    $waitingUser = User::factory()->create(['name' => 'Waiter', 'email' => 'waiter@example.com']);
+    $waitingUser->assignRole('employee');
+    $confirmedUser = User::factory()->create(['name' => 'Joiner', 'email' => 'joiner@example.com']);
+    $confirmedUser->assignRole('employee');
+
+    WorkshopRegistration::factory()->waitingList()->create([
+        'workshop_id' => $workshop->id,
+        'user_id' => $waitingUser->id,
+        'created_at' => now()->subHour(),
+    ]);
+
+    WorkshopRegistration::factory()->confirmed()->create([
+        'workshop_id' => $workshop->id,
+        'user_id' => $confirmedUser->id,
+        'created_at' => now(),
+    ]);
+
+    $this->actingAs($admin)
+        ->get(route('admin.workshops.show', $workshop))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('admin/workshops/Show')
+            ->where('workshop.id', $workshop->id)
+            ->where('workshop.confirmed_registrations_count', 1)
+            ->where('workshop.waiting_list_registrations_count', 1)
+            ->has('participantList', 2)
+            ->where('participantList.0.registration_status', 'confirmed')
+            ->where('participantList.0.user.email', 'joiner@example.com')
+            ->where('participantList.1.registration_status', 'waiting_list')
+            ->where('participantList.1.user.email', 'waiter@example.com')
+            ->has('participantTableColumns', 5)
+            ->has('assignableUsers'));
+});
+
+test('admin attach participant rejects non-employee user_id', function () {
+    $admin = User::factory()->create();
+    $admin->assignRole('admin');
+
+    $nonEmployee = User::factory()->create();
+    $nonEmployee->assignRole('admin');
+
+    $workshop = Workshop::factory()->upcoming()->create([
+        'created_by' => $admin->id,
+        'capacity' => 5,
+    ]);
+
+    $this->actingAs($admin)
+        ->from(route('admin.workshops.show', $workshop))
+        ->post(route('admin.workshops.participants.attach', $workshop), [
+            'user_id' => $nonEmployee->id,
+        ])
+        ->assertRedirect(route('admin.workshops.show', $workshop))
+        ->assertSessionHasErrors('user_id');
+
+    expect(WorkshopRegistration::query()
+        ->where('workshop_id', $workshop->id)
+        ->where('user_id', $nonEmployee->id)
+        ->exists())->toBeFalse();
+});
+
+test('admin attach participant rejects unknown user_id', function () {
+    $admin = User::factory()->create();
+    $admin->assignRole('admin');
+
+    $workshop = Workshop::factory()->upcoming()->create([
+        'created_by' => $admin->id,
+        'capacity' => 5,
+    ]);
+
+    $this->actingAs($admin)
+        ->from(route('admin.workshops.show', $workshop))
+        ->post(route('admin.workshops.participants.attach', $workshop), [
+            'user_id' => 999_999,
+        ])
+        ->assertRedirect(route('admin.workshops.show', $workshop))
+        ->assertSessionHasErrors('user_id');
+});
+
+test('admin attach adds employee to waiting list when workshop is full', function () {
+    $admin = User::factory()->create();
+    $admin->assignRole('admin');
+
+    $firstEmployee = User::factory()->create();
+    $firstEmployee->assignRole('employee');
+    $secondEmployee = User::factory()->create();
+    $secondEmployee->assignRole('employee');
+
+    $workshop = Workshop::factory()->upcoming()->create([
+        'created_by' => $admin->id,
+        'capacity' => 1,
+    ]);
+
+    WorkshopRegistration::factory()->confirmed()->create([
+        'workshop_id' => $workshop->id,
+        'user_id' => $firstEmployee->id,
+    ]);
+
+    $this->actingAs($admin)
+        ->post(route('admin.workshops.participants.attach', $workshop), [
+            'user_id' => $secondEmployee->id,
+        ])
+        ->assertRedirect();
+
+    $registration = WorkshopRegistration::query()
+        ->where('workshop_id', $workshop->id)
+        ->where('user_id', $secondEmployee->id)
+        ->first();
+
+    expect($registration)->not->toBeNull()
+        ->and($registration->status->value)->toBe('waiting_list');
+});
+
+test('admin can attach and detach a workshop participant', function () {
+    $admin = User::factory()->create();
+    $admin->assignRole('admin');
+
+    $employee = User::factory()->create();
+    $employee->assignRole('employee');
+
+    $workshop = Workshop::factory()->upcoming()->create([
+        'created_by' => $admin->id,
+        'capacity' => 5,
+    ]);
+
+    expect(WorkshopRegistration::query()
+        ->where('workshop_id', $workshop->id)
+        ->where('user_id', $employee->id)
+        ->exists())->toBeFalse();
+
+    $this->actingAs($admin)
+        ->post(route('admin.workshops.participants.attach', $workshop), [
+            'user_id' => $employee->id,
+        ])
+        ->assertRedirect();
+
+    $registration = WorkshopRegistration::query()
+        ->where('workshop_id', $workshop->id)
+        ->where('user_id', $employee->id)
+        ->first();
+
+    expect($registration)->not->toBeNull()
+        ->and($registration->status->value)->toBe('confirmed');
+
+    $this->actingAs($admin)
+        ->delete(route('admin.workshops.participants.detach', $workshop), [
+            'user_id' => $employee->id,
+        ])
+        ->assertRedirect();
+
+    expect(WorkshopRegistration::query()
+        ->where('workshop_id', $workshop->id)
+        ->where('user_id', $employee->id)
+        ->exists())->toBeFalse();
 });
 
 test('admin create and edit pages render with categories', function () {
