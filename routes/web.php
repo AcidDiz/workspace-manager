@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\Admin\AdminDashboardController;
+use App\Http\Controllers\Admin\Dashboard\AdminDashboardController;
 use App\Http\Controllers\Admin\Workshops\WorkshopCreateController;
 use App\Http\Controllers\Admin\Workshops\WorkshopDestroyController;
 use App\Http\Controllers\Admin\Workshops\WorkshopEditController;
