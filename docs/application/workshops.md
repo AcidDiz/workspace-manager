@@ -1,13 +1,13 @@
 # Workshop domain (current implementation)
 
-This document describes **what exists in the codebase today**. Features that are only planned (for example self-service enrolment) are listed at the end—they must not be read as already shipped.
+This document describes **what exists in the codebase today**. Planned extensions (for example **waiting-list overflow** on full workshops, FIFO promotion, overlap rules) are referenced at the end—they must not be read as already shipped unless this file says so explicitly.
 
 ## Purpose
 
 - Represent **scheduled workshops** with a real **time interval** (`starts_at`, `ends_at`) and a **capacity** integer.
 - Classify workshops with **`workshop_categories`** and optional **`workshop_category_id`** on each workshop.
 - Represent **enrolments** as a **first-class model** (`WorkshopRegistration`) with an explicit **status** (`confirmed`, `waiting_list`), not an anonymous many-to-many pivot.
-- Provide **deterministic demo data** via seeders and **authenticated** Inertia flows: employees **browse** workshops; **admins** (`workshops.manage`) use the **admin** area for listing (table, filters, sort) and **full CRUD** (create, edit, delete). **Employees** default to **upcoming** workshops only; **admins** default to **all** on the index.
+- Provide **deterministic demo data** via seeders and **authenticated** Inertia flows: employees **browse** workshops and may **register** or **cancel** their own enrolment on **`GET /app/workshops`** (attach/detach routes); **admins** (`workshops.manage`) use the **admin** area for listing (table, filters, sort) and **full CRUD** (create, edit, delete). **Employees** default to **upcoming** workshops only; **admins** default to **all** on the index.
 
 For **HTTP routes, query parameters, and Inertia response props** for the workshop index pages, see [`../api/workshops.md`](../api/workshops.md).
 
@@ -19,9 +19,10 @@ For **HTTP routes, query parameters, and Inertia response props** for the worksh
 | `database/migrations/2026_04_12_094502_create_workshops_table.php`              | Creates `workshops` with interval, `capacity`, nullable `workshop_category_id`, `created_by` FK to `users`, index on `starts_at`.                |
 | `database/migrations/2026_04_12_094503_create_workshop_registrations_table.php` | Creates `workshop_registrations` with FKs and **unique** `(workshop_id, user_id)`.                                                               |
 | `app/Enums/Workshop/WorkshopRegistrationStatusEnum.php`                         | Backed enum: `confirmed`, `waiting_list` (`WorkshopRegistration` cast + scopes).                                                                  |
-| `app/Enums/Workshop/WorkshopStatusEnum.php`                                     | Backed enum: `all`, `upcoming`, `closed` for the workshops index `status` query; `label()` + `filterSelectOptions()` for filter UIs.                 |
+| `app/Enums/Workshop/WorkshopStatusEnum.php`                                     | Backed enum: `all`, `upcoming`, `closed` for the index `status` query; `label()`, `filterSelectOptions()`, `badgeClassName()` (Tailwind) for timing badges. |
+| `app/Exceptions/Workshop/WorkshopRegistrationException.php`                     | Domain exception raised when **attach** cannot complete (`workshopClosed`, `alreadyRegistered`, `full`). Message is user-facing and flashed by the controller. |
 | `app/Models/WorkshopCategory.php`                                               | `HasFactory`; workshops relation.                                                                                                                |
-| `app/Models/Workshop.php`                                                       | `creator()`, `category()`, `registrations()`; `casts()` for `starts_at` / `ends_at`; `HasFactory`. Query scopes are provided by two traits (see below), not declared on the class body. |
+| `app/Models/Workshop.php`                                                       | `creator()`, `category()`, `registrations()`; `withConfirmedRegistrationCount()` (`confirmed_registrations_count` for confirmed seats); `casts()` for `starts_at` / `ends_at`; `HasFactory`. Query scopes are provided by two traits (see below), not declared on the class body. |
 | `app/Models/Scopes/Workshop/WorkshopFilterScopes.php`                           | Trait used by `Workshop`: `withIndexRelations` (`with category, creator`), `upcoming` / `closed` (by `starts_at` vs `now()`), `status` (maps `WorkshopStatusEnum` string values; `all` = no extra constraint), `filterCategoryId`, `searchTitle` (trimmed `LIKE`), `startsOn` (`whereDate`), `createdBy`. |
 | `app/Models/Scopes/Workshop/WorkshopSortScopes.php`                             | Trait used by `Workshop`: `ordered` (`starts_at` asc), `indexOrder` (upcoming rows first, then closed, each by `starts_at` asc), `sortForAdminIndex` (admin-only sort keys: `title`, `starts_at`, `category.name`, `creator.name`, `timing_status`; related sorts use scalar subqueries; unknown sort falls back to `indexOrder`). |
 | `app/Models/WorkshopRegistration.php`                                           | `workshop()`, `user()`; scopes `confirmed()`, `waitingList()`; enum cast on `status`; `HasFactory`.                                              |
@@ -33,11 +34,15 @@ For **HTTP routes, query parameters, and Inertia response props** for the worksh
 | `database/seeders/RolePermissionSeeder.php`                                     | Spatie roles `admin`, `employee`; permissions `workshops.view`, `workshops.manage`; assigns permissions to roles.                                |
 | `database/seeders/AcademyDemoSeeder.php`                                        | Demo admin and employees, many workshops (mix upcoming/closed), registrations, category assignment.                                              |
 | `database/seeders/DatabaseSeeder.php`                                           | Calls `RolePermissionSeeder`, `WorkshopCategorySeeder`, then `AcademyDemoSeeder`.                                                                |
-| `app/Policies/WorkshopPolicy.php`                                               | `viewAny` / `view` require `workshops.view`; mutations require `workshops.manage`.                                                               |
+| `app/Policies/WorkshopPolicy.php`                                               | `viewAny` / `view` require `workshops.view`; mutations require `workshops.manage`. **`attachRegistration`** / **`detachRegistration`** mirror `view` (self-service enrolment for viewers). |
+| `app/Services/Workshop/WorkshopRegistrationService.php`                         | **`attach(User, Workshop): WorkshopRegistration`**. Uses a DB transaction + row lock; throws `WorkshopRegistrationException` for closed / duplicate / full cases. |
+| `app/Services/Workshop/WorkshopCancellationService.php`                         | **`detach(User, Workshop): bool`**. Uses a DB transaction + row lock; returns `true` when a row was removed, `false` when nothing existed. |
+| `app/Http/Controllers/App/Workshops/WorkshopRegistrationAttachController.php`    | Invokable: **`POST /app/workshops/{workshop}/registrations`**; flash toast; redirect back. |
+| `app/Http/Controllers/App/Workshops/WorkshopRegistrationDetachController.php` | Invokable: **`DELETE /app/workshops/{workshop}/registrations`**; flash toast; redirect back. |
 | `app/Http/Requests/Workshops/ListWorkshopsIndexRequest.php`                     | Validates query filters and admin-only sorting params (`sort`, `direction`); `status` via `Rule::enum(WorkshopStatusEnum::class)`. Does not force defaults into the query string. |
 | `app/Support/Filters/Workshops/WorkshopUserFilters.php`                         | Non-admin workshops index (`workshops.view` without `workshops.manage`): card grid query, **`index()`** returns `cardFilterFields` (filter bar shape, not table columns); effective `status` default **`upcoming`**. |
 | `app/Support/Filters/Workshops/WorkshopAdminFilters.php`                        | Admin workshops index (`workshops.manage`): table query (sort, `created_by`, creator options), **`index()`** returns `workshopTableColumns` from `WorkshopTableColumns`; effective `status` default **`all`**. |
-| `app/Http/Controllers/App/Workshops/WorkshopIndexController.php`                | Invokable: `GET /app/workshops`. If `workshops.manage`, **redirects** to `admin.workshops.index` with the same query string. Otherwise `WorkshopUserFilters::index()` → Inertia `app/workshops/Index` (`workshopList`, `filters`, `cardFilterFields` only). |
+| `app/Http/Controllers/App/Workshops/WorkshopIndexController.php`                | Invokable: `GET /app/workshops`. If `workshops.manage`, **redirects** to `admin.workshops.index` with the same query string. Otherwise `WorkshopUserFilters::index()` → enriches each list row with **`my_registration_status`** for the current user → Inertia `app/workshops/Index` (`workshopList`, `filters`, `cardFilterFields` only). |
 | `app/Http/Controllers/Admin/Workshops/WorkshopIndexController.php`              | Invokable: `GET /admin/workshops`. `WorkshopAdminFilters::index()` → Inertia `admin/workshops/Index` (`workshopList`, `filters`, `workshopTableColumns` only). |
 | `app/Http/Controllers/Admin/Workshops/WorkshopCreateController.php`            | Invokable: `GET /admin/workshops/create`. Inertia `admin/workshops/Create` with `categories` (`id`, `name`). |
 | `app/Http/Controllers/Admin/Workshops/WorkshopStoreController.php`             | Invokable: `POST /admin/workshops`. Persists a workshop; sets `created_by` to the current user; flash toast; redirect to `admin.workshops.index`. |
@@ -47,10 +52,10 @@ For **HTTP routes, query parameters, and Inertia response props** for the worksh
 | `app/Http/Requests/Workshops/StoreWorkshopRequest.php`                         | Authorizes `create`; validates title, description, category, interval, capacity; normalises empty `workshop_category_id` to `null`. |
 | `app/Http/Requests/Workshops/UpdateWorkshopRequest.php`                      | Authorizes `update` on route `workshop`; same field rules as store. |
 | `app/Http/Resources/Workshop/WorkshopFormResource.php`                         | Form payload for edit: `datetime-local`-friendly `starts_at` / `ends_at` in `config('app.timezone')`, plus scalar fields. |
-| `app/Http/Resources/Workshop/WorkshopListItemResource.php`                      | Serialises list rows: ISO 8601 datetimes, nested `category` / `creator`, `timing_status` (`upcoming` \| `closed`).                               |
+| `app/Http/Resources/Workshop/WorkshopListItemResource.php`                      | Serialises list rows: ISO 8601 datetimes, `capacity`, `confirmed_registrations_count`, `enrollment` (`n/capacity`), nested `category` / `creator`, `timing_status`, `timing_status_badge_class`, optional **`my_registration_status`** (app index only when passed in). |
 | `app/Http/Resources/WorkshopCategory/WorkshopCategoryFilterSelectOptionResource.php` | `{ value, label }` for category `<select>` options; used by `WorkshopTableColumns` and `WorkshopUserFilters` (card filter defs).                  |
 | `app/Http/Resources/User/FilterSelectOptionResource.php`                        | `{ value, label }` for creator filter options in `WorkshopTableColumns` (admin table).                                                            |
-| `app/Support/Tables/WorkshopTableColumns.php`                                   | Admin index **table** metadata only: **`adminTable($categories, $creators)`** — columns (title, category.name, starts_at, creator.name, timing_status, **`_actions`** with `cast_type` `actions`, not filterable/sortable). The shared `Table` Vue component passes **filterable** columns into `FiltersBar`. Status option labels match the filter query (`all` = “Upcoming and closed”, etc.). |
+| `app/Support/Tables/WorkshopTableColumns.php`                                   | Admin index **table** metadata: columns include **enrollment** (registered/capacity string), **timing_status** with `cast_type` **`workshop_timing_badge`** for `WorkshopStatusBadge`, then **`_actions`**. Filterable columns feed `FiltersBar`. |
 | `app/Http/Middleware/HandleInertiaRequests.php`                                 | Shares `auth.workshop_permissions` (`view`, `manage`) for conditional UI.                                                                        |
 | `resources/js/pages/app/workshops/Index.vue`                                    | Employee Inertia page: cards + `FiltersBar` (query-string driven).                                                                                |
 | `resources/js/pages/admin/workshops/Index.vue`                                  | Admin Inertia page: `Table` + sorting/filtering; **Create workshop** link; `#row-actions` slot with `ManageRowActions`.                           |
@@ -61,7 +66,9 @@ For **HTTP routes, query parameters, and Inertia response props** for the worksh
 | `resources/js/components/dialogs/ConfirmDeleteDialog.vue`                       | Reusable confirm dialog + Inertia `<Form>`; title, description, and form attributes from parent.                                                  |
 | `resources/js/components/tables/Table.vue`                                      | Generic index table + embedded `FiltersBar`; slot `#row-actions` for `cast_type === 'actions'` cells.                                             |
 | `resources/js/components/tables/FiltersBar.vue`                                 | Shared filter UI (query-string driven); props `fields` are **`FilterBarField`** (`param`, `label`, …). Table mode maps filterable `TableColumn` rows into that shape inside `Table.vue`. |
-| `resources/js/components/cards/WorkshopCard.vue`                                | Employee card layout for a single workshop.                                                                                                      |
+| `resources/js/components/cards/WorkshopCard.vue`                                | Employee card: timing badge, **Register** (Inertia `Form` POST attach), **Full** when at capacity, **Cancel registration** (confirm dialog → detach). |
+| `resources/js/routes/app/workshops/registrations/index.ts`                    | Wayfinder output for **`app.workshops.registrations.attach`** / **`detach`** (`*.form()` for Inertia forms). |
+| `resources/js/components/badge/WorkshopStatusBadge.vue`                         | Pill badge: `label` + Tailwind `badgeClass` from list payload (`WorkshopStatusEnum` on the server). Used in `WorkshopCard` and admin `Table` timing column. |
 | `resources/js/types/models/workshop.ts`                                         | `WorkshopListItem`, `WorkshopPermissions`, `WorkshopCategoryOption`, `WorkshopFormPayload`.                                                        |
 | `resources/js/components/AppSidebar.vue`, `AppHeader.vue`                       | Main nav: **Workshops** link only when `workshop_permissions.view` is true; routes to `/admin/*` when `workshop_permissions.manage` is true.     |
 
@@ -95,14 +102,15 @@ For **HTTP routes, query parameters, and Inertia response props** for the worksh
 1. User must be **authenticated** and **email verified** (middleware on the workshops route group).
 2. User must be allowed **`viewAny`** on `Workshop` (i.e. `workshops.view` via policy). Otherwise the server responds **403 Forbidden**.
 3. `GET /app/workshops` (`app.workshops.index`) returns Inertia `app/workshops/Index` (employee UI) for users **without** `workshops.manage` (admins with manage permission are redirected to step 4’s route first). Response includes:
-    - **`workshopList`** — array from `WorkshopListItemResource`;
+    - **`workshopList`** — array from `WorkshopListItemResource` (each row includes **`my_registration_status`** for the current user on this route);
     - **`filters`** — active filter values echoed for the UI;
     - **`cardFilterFields`** — filter bar metadata for the card index (`param` + `label` + `input_type` + optional `options`; not table column definitions).
 4. `GET /admin/workshops` (`admin.workshops.index`) returns Inertia `admin/workshops/Index` (admin UI) with:
     - **`workshopList`** — array from `WorkshopListItemResource`;
     - **`filters`** — active filter values echoed for the UI;
     - **`workshopTableColumns`** — non-empty (admin column defs + filter options, including the non-filterable **Actions** column).
-5. Admins with `workshops.manage` may **`GET /admin/workshops/create`**, **`POST /admin/workshops`**, **`GET /admin/workshops/{workshop}/edit`**, **`PUT /admin/workshops/{workshop}`**, and **`DELETE /admin/workshops/{workshop}`** (see [`../api/workshops.md`](../api/workshops.md)). Success responses use **`Inertia::flash('toast', …)`** (same pattern as settings profile update). Employees receive **403** on those routes.
+5. Users with `workshops.view` (and not redirected to admin) may **`POST /app/workshops/{workshop}/registrations`** and **`DELETE /app/workshops/{workshop}/registrations`** to attach or detach **their own** registration (see [`../api/workshops.md`](../api/workshops.md)). Business rules live in **`App\Services\Workshop\WorkshopRegistrationService`** and **`App\Services\Workshop\WorkshopCancellationService`**; controllers only authorize, invoke, and flash.
+6. Admins with `workshops.manage` may **`GET /admin/workshops/create`**, **`POST /admin/workshops`**, **`GET /admin/workshops/{workshop}/edit`**, **`PUT /admin/workshops/{workshop}`**, and **`DELETE /admin/workshops/{workshop}`** (see [`../api/workshops.md`](../api/workshops.md)). Success responses use **`Inertia::flash('toast', …)`** (same pattern as settings profile update). Employees receive **403** on those admin mutation routes.
 
 ## Tests (Pest)
 
@@ -114,6 +122,9 @@ For how tests are organised and executed across the app, see [`tests.md`](tests.
 | `tests/Feature/WorkshopIndexTest.php`         | Guest redirect; authenticated user with `workshops.view` sees Inertia shape (employee path). |
 | `tests/Feature/WorkshopAuthorizationTest.php` | 403 without permission; policy; shared props; admin table mode and sorting via query string. |
 | `tests/Feature/AdminWorkshopManagementTest.php` | Admin CRUD: store/update/destroy, validation failures, employee forbidden on admin mutations, Inertia create/edit pages, cascade delete of registrations. |
+| `tests/Feature/WorkshopRegistrationFlowTest.php` | Attach/detach HTTP flows: success, duplicate, full, closed workshop, idempotent detach, 403 without permission, `my_registration_status` on app index. |
+| `tests/Feature/Services/WorkshopRegistrationServiceTest.php` | Service-level attach rules (capacity, closed, duplicate). |
+| `tests/Feature/Services/WorkshopCancellationServiceTest.php` | Service-level detach (removed vs not registered). |
 | `tests/Browser/AdminWorkshopBrowserTest.php` | After login: open create page; edit workshop from admin table; delete workshop via confirm dialog (assert row gone + model deleted). |
 | `tests/Feature/AcademyDemoSeederTest.php`     | After `DatabaseSeeder`, roles, users, workshop and registration counts and states.           |
 | `tests/Feature/SeededWorkshopsPageTest.php`   | After seed, demo workshop titles present in Inertia props for a demo admin user.             |
@@ -121,6 +132,7 @@ For how tests are organised and executed across the app, see [`tests.md`](tests.
 ## Not implemented (planned / out of scope)
 
 - Public **REST JSON API** for workshops (the app is web + session + Inertia).
-- **Self-service enrolment or cancellation** from the UI.
+- **Waiting-list overflow** when a workshop is full (attach currently returns an error; **`waiting_list`** exists on the model for demo/seed and future FIFO work).
+- **Overlap rules** blocking conflicting registrations for the same user (see workspace TODO07).
 
 Roadmap items may appear in workspace `docs/todo/` files if your checkout includes them; those files are not the canonical behaviour spec for this app module.

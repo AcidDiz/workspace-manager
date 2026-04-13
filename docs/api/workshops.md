@@ -12,12 +12,20 @@ Both routes live inside the `auth` + `verified` group in `routes/web.php`:
 - **Admin** — `GET /admin/workshops` → `admin.workshops.index` → `App\Http\Controllers\Admin\Workshops\WorkshopIndexController`
 
 ```php
-// routes/web.php (excerpt)
+// routes/web.php (excerpt; imports include WorkshopRegistrationAttachController / WorkshopRegistrationDetachController)
 Route::middleware(['can:viewAny,'.Workshop::class])
     ->prefix('app')
     ->as('app.')
     ->group(function () {
         Route::get('workshops', AppWorkshopIndexController::class)->name('workshops.index');
+
+        Route::post('workshops/{workshop}/registrations', WorkshopRegistrationAttachController::class)
+            ->middleware(['can:attachRegistration,workshop'])
+            ->name('workshops.registrations.attach');
+
+        Route::delete('workshops/{workshop}/registrations', WorkshopRegistrationDetachController::class)
+            ->middleware(['can:detachRegistration,workshop'])
+            ->name('workshops.registrations.detach');
     });
 
 Route::prefix('admin')
@@ -46,6 +54,8 @@ Route::prefix('admin')
 | URI                    | Route name              | Middleware (order)                                    | Authorization (policy)                               |
 | ---------------------- | ----------------------- | ----------------------------------------------------- | ---------------------------------------------------- |
 | `GET /app/workshops`   | `app.workshops.index`   | `auth`, `verified`, `can:viewAny,App\Models\Workshop` | `WorkshopPolicy::viewAny` → Spatie `workshops.view`  |
+| `POST /app/workshops/{workshop}/registrations` | `app.workshops.registrations.attach` | `auth`, `verified`, `can:viewAny,App\Models\Workshop`, `can:attachRegistration,workshop` | `WorkshopPolicy::attachRegistration` → same as `view` |
+| `DELETE /app/workshops/{workshop}/registrations` | `app.workshops.registrations.detach` | `auth`, `verified`, `can:viewAny,App\Models\Workshop`, `can:detachRegistration,workshop` | `WorkshopPolicy::detachRegistration` → same as `view` |
 | `GET /admin/workshops` | `admin.workshops.index` | `auth`, `verified`, `can:create,App\Models\Workshop`  | `WorkshopPolicy::create` → Spatie `workshops.manage` |
 
 Additional **admin workshop management** routes (same `auth` + `verified` prefix; see `routes/web.php`):
@@ -92,7 +102,21 @@ Invalid query values result in a normal Laravel validation response (typically *
 
 - Resolves the authenticated user (must be non-null under `auth`).
 - If the user **`can('workshops.manage')`**, returns **`302`** to `route('admin.workshops.index', $request->query())` so admins always land on the admin Inertia page with the same query string.
-- Otherwise calls `WorkshopUserFilters::index($request->validated())` and renders Inertia page **`app/workshops/Index`** with **`workshopList`**, **`filters`**, **`cardFilterFields`** (no table column props).
+- Otherwise calls `WorkshopUserFilters::index($request->validated())` and renders Inertia page **`app/workshops/Index`** with **`workshopList`**, **`filters`**, **`cardFilterFields`** (no table column props). Each `workshopList` row includes **`my_registration_status`** (`confirmed`, `waiting_list`, or `null`) for the current user.
+
+### `App\Http\Controllers\App\Workshops\WorkshopRegistrationAttachController`
+
+- **`POST /app/workshops/{workshop}/registrations`** (`app.workshops.registrations.attach`).
+- Authorizes `attachRegistration` on the bound workshop.
+- Delegates to **`App\Services\Workshop\WorkshopRegistrationService::attach`**: requires `starts_at` in the future, no existing row for `(workshop, user)`, and **confirmed** count strictly below `capacity` (waiting-list overflow is **TODO07**; full workshops return an error flash).
+- **`302`** back to the previous URL (typically the app index) with **`Inertia::flash('toast', …)`** (`success` or `error`).
+
+### `App\Http\Controllers\App\Workshops\WorkshopRegistrationDetachController`
+
+- **`DELETE /app/workshops/{workshop}/registrations`** (`app.workshops.registrations.detach`; Inertia forms use `_method=DELETE`).
+- Authorizes `detachRegistration` on the bound workshop.
+- Delegates to **`App\Services\Workshop\WorkshopCancellationService::detach`**: deletes the current user’s registration if present (**idempotent** if already absent).
+- **`302`** back with **`Inertia::flash('toast', …)`** (`success` when a row was removed, `info` when the user was not registered).
 
 ### `App\Http\Controllers\Admin\Workshops\WorkshopIndexController`
 
@@ -172,13 +196,19 @@ Each element is a plain object:
     "starts_at": "2026-04-20T10:00:00+00:00",
     "ends_at": "2026-04-20T14:00:00+00:00",
     "capacity": 20,
+    "confirmed_registrations_count": 3,
+    "enrollment": "3/20",
     "category": { "id": 1, "name": "Laravel backend" },
     "creator": { "id": 2, "name": "Academy Admin" },
-    "timing_status": "upcoming"
+    "timing_status": "upcoming",
+    "timing_status_badge_class": "border-transparent bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+    "my_registration_status": null
 }
 ```
 
-`timing_status` is `upcoming` when `starts_at` is in the future, otherwise `closed`. Placeholder `category` / `creator` objects use `id: null` and `name: "—"` when the relation is missing.
+On **`GET /app/workshops`**, `my_registration_status` reflects the signed-in user’s row for that workshop (`confirmed`, `waiting_list`, or `null`). On **`GET /admin/workshops`**, the admin list does not resolve per-viewer enrolment; this field is **`null`** for every row.
+
+`confirmed_registrations_count` counts **confirmed** registrations only. `timing_status` is `upcoming` when `starts_at` is in the future, otherwise `closed`; `timing_status_badge_class` is produced by `WorkshopStatusEnum::badgeClassName()` for the UI badge. Placeholder `category` / `creator` objects use `id: null` and `name: "—"` when the relation is missing.
 
 ## Example requests
 
