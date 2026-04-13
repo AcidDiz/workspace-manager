@@ -4,6 +4,10 @@ import type { Auth } from '@/types/auth';
 declare module 'vite/client' {
     interface ImportMetaEnv {
         readonly VITE_APP_NAME: string;
+        readonly VITE_REVERB_APP_KEY?: string;
+        readonly VITE_REVERB_HOST?: string;
+        readonly VITE_REVERB_PORT?: string;
+        readonly VITE_REVERB_SCHEME?: string;
         [key: string]: string | boolean | undefined;
     }
 
@@ -18,9 +22,16 @@ declare module '@inertiajs/core' {
         sharedPageProps: {
             name: string;
             auth: Auth;
+            csrf_token: string;
             sidebarOpen: boolean;
             [key: string]: unknown;
         };
+    }
+}
+
+declare global {
+    interface Window {
+        Pusher: typeof import('pusher-js').default;
     }
 }
 
@@ -31,3 +42,5 @@ declare module 'vue' {
         $headManager: ReturnType<typeof createHeadManager>;
     }
 }
+
+export {};
