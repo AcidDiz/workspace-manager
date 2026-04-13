@@ -190,6 +190,86 @@ php artisan queue:listen --tries=1 --timeout=0
 php artisan pail --timeout=0
 ```
 
+### Dashboards
+
+- **`GET /dashboard`** (`dashboard`) is the **generic** authenticated home page from the starter kit; it is not tied to workshop metrics.
+- **`GET /app/dashboard`** (`app.dashboard`) is the **employee workshop home**: Inertia `app/dashboard/Index` with **`registrationSummary`** (confirmed and waiting-list counts for the signed-in user). Requires **`can:viewAny,Workshop`** (same middleware group as **`GET /app/workshops`**).
+- **`GET /admin/dashboard`** (`admin.dashboard`) is the **workshop admin overview**: initial aggregate counts come from Inertia props (`statistics`); live updates use **Laravel Reverb** and **Laravel Echo** on the private channel `admin.workshop-statistics` (event `statistics.updated`).
+
+### Laravel Reverb (realtime)
+
+Realtime features expect **`BROADCAST_CONNECTION=reverb`** (see `.env.example`) and a consistent split between **server-side** and **browser-side** Reverb settings.
+
+**Why two host/port pairs?**
+
+- **`REVERB_HOST` / `REVERB_PORT` / `REVERB_SCHEME`** are used by **Laravel (PHP)** when it publishes events to Reverb over HTTP (Pusher-compatible API). Inside Sail, PHP runs in the `laravel.test` container: **`localhost` there is the app container itself**, not Reverb. Setting `REVERB_HOST=localhost` typically causes `BroadcastException` / cURL “connection refused” to port 8080.
+- **`VITE_REVERB_HOST` / `VITE_REVERB_PORT` / `VITE_REVERB_SCHEME`** are baked into the **frontend** bundle for **Laravel Echo** (the browser’s WebSocket client). The browser must use a hostname and port it can actually reach on your machine (published port), not the Docker service name `reverb`.
+
+The workshop admin statistics stream is broadcast **immediately after the database transaction commits** (no queue worker required for that UI update).
+
+#### `.env` with Laravel Sail (recommended)
+
+Start Reverb (and the app) with Sail, e.g. `./vendor/bin/sail up -d` including the **`reverb`** service from `compose.yaml`. Reverb listens on **8080 inside the container**; the host maps **`${FORWARD_REVERB_PORT:-8081}:8080`** (default published port **8081**).
+
+Use a block like this (adjust `REVERB_APP_*` secrets as needed):
+
+```dotenv
+BROADCAST_CONNECTION=reverb
+
+REVERB_APP_ID=workshop-manager
+REVERB_APP_KEY=your-reverb-key
+REVERB_APP_SECRET=your-reverb-secret
+
+# PHP → Reverb over the Docker network (service name + internal port)
+REVERB_HOST=reverb
+REVERB_PORT=8080
+REVERB_SCHEME=http
+
+# Browser → WebSocket on the host (must match the published port, default 8081)
+VITE_REVERB_APP_KEY="${REVERB_APP_KEY}"
+VITE_REVERB_HOST=127.0.0.1
+VITE_REVERB_PORT=8081
+VITE_REVERB_SCHEME=http
+```
+
+If you open the app at a custom host such as **`http://workshop-manager.local:8080`**, set **`VITE_REVERB_HOST=workshop-manager.local`** (same hostname the browser uses) so cookies and same-site behaviour stay consistent; keep **`VITE_REVERB_PORT`** on the **published Reverb port** (often **8081**), not `APP_PORT`.
+
+After editing `.env`:
+
+```bash
+./vendor/bin/sail artisan optimize:clear
+npm run build
+```
+
+(or `npm run dev` during development so `VITE_*` are picked up)
+
+#### `.env` without Docker (e.g. `composer run dev`)
+
+When PHP and Reverb both run on the host, **`REVERB_*` and `VITE_REVERB_*` can match** (same host and port), for example:
+
+```dotenv
+BROADCAST_CONNECTION=reverb
+REVERB_HOST=127.0.0.1
+REVERB_PORT=8081
+REVERB_SCHEME=http
+VITE_REVERB_APP_KEY="${REVERB_APP_KEY}"
+VITE_REVERB_HOST=127.0.0.1
+VITE_REVERB_PORT=8081
+VITE_REVERB_SCHEME=http
+```
+
+`composer run dev` starts Reverb on **`127.0.0.1:8081`** in this project’s script; align `REVERB_PORT` / `VITE_REVERB_PORT` with that.
+
+#### Troubleshooting
+
+| Symptom | Likely cause |
+| ------- | ------------ |
+| `Failed to connect to localhost port 8080` from PHP while using Sail | `REVERB_HOST` is `localhost` inside the container; use **`reverb`** (or the correct Docker hostname) and **`REVERB_PORT=8080`**. |
+| Echo connects but auth fails | Session / CSRF: ensure **`csrf_token`** is available to Echo (Inertia shared props) and you are on the same site as **`APP_URL`**. |
+| No live updates after changing `.env` | Run **`php artisan optimize:clear`** (or Sail equivalent) and **rebuild or restart Vite** so `VITE_*` changes apply. |
+
+Tests set **`BROADCAST_CONNECTION=null`** in `phpunit.xml`, so the suite does not require a socket server.
+
 ### Workshop reminder emails (scheduler)
 
 The app registers **`workshops:remind`** in `routes/console.php` to run **daily at 07:00** (application timezone). It emails **confirmed** participants only, for workshops whose **`starts_at`** falls on the **next calendar day** in `config('app.timezone')`—the decision is **date-based**, not “exactly N hours before”.
