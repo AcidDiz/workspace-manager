@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 
 withDefaults(
     defineProps<{
+        /** Optional link to the workshop detail (admin show). */
+        viewHref?: string;
         editHref: string;
         /** Wayfinder `*.form(...)` for the destroy/delete route. */
         deleteForm: Record<string, unknown>;
@@ -26,6 +28,9 @@ const deleteOpen = ref(false);
 
 <template>
     <div class="flex flex-wrap items-center gap-2">
+        <Button v-if="viewHref" variant="outline" size="sm" as-child>
+            <Link :href="viewHref">View</Link>
+        </Button>
         <Button variant="outline" size="sm" as-child>
             <Link :href="editHref">Edit</Link>
         </Button>

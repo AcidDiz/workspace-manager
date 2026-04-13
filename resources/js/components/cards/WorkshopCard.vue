@@ -2,7 +2,7 @@
 import { Form } from "@inertiajs/vue3";
 import { CalendarRange, Users } from "lucide-vue-next";
 import { computed, ref } from "vue";
-import WorkshopStatusBadge from "@/components/badge/WorkshopStatusBadge.vue";
+import StatusBadge from "@/components/badge/StatusBadge.vue";
 import ConfirmDeleteDialog from "@/components/dialogs/ConfirmDeleteDialog.vue";
 import { Button } from "@/components/ui/button";
 import {
@@ -87,7 +87,7 @@ function formatRange(startsAt: string, endsAt: string): string {
           {{ props.workshop.confirmed_registrations_count }}/{{ props.workshop.capacity }}
         </span>
       </div>
-      <WorkshopStatusBadge
+      <StatusBadge
         :label="props.workshop.timing_status === 'upcoming' ? 'Upcoming' : 'Closed'"
         :badge-class="props.workshop.timing_status_badge_class"
       />

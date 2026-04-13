@@ -87,7 +87,7 @@ class WorkshopTableColumns
                 'field_name' => 'timing_status',
                 'label' => 'Timing',
                 'placeholder' => 'Select Status',
-                'cast_type' => 'workshop_timing_badge',
+                'cast_type' => 'workshop_timing',
                 'input_type' => 'select',
                 'filterable' => true,
                 'filter_param' => 'status',

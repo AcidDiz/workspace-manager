@@ -2,9 +2,8 @@
 import { cn } from '@/lib/utils';
 
 const props = defineProps<{
-    /** Display label (e.g. Upcoming / Closed). */
     label: string;
-    /** Tailwind classes from `WorkshopStatusEnum::badgeClassName()` on the list payload. */
+    /** Tailwind utility classes for background, text, and border (from server or design tokens). */
     badgeClass: string;
 }>();
 </script>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, Link, usePage } from "@inertiajs/vue3";
 import { computed } from "vue";
+import StatusBadge from "@/components/badge/StatusBadge.vue";
 import Heading from "@/components/Heading.vue";
 import ManageRowActions from "@/components/tables/ManageRowActions.vue";
 import Table from "@/components/tables/Table.vue";
@@ -25,6 +26,10 @@ const tableRows = computed(() =>
 );
 
 const indexUrl = (query: Record<string, string>) => adminWorkshops.index.url({ query });
+
+function timingBadgeClass(row: Record<string, unknown>): string {
+  return String(row.timing_status_badge_class ?? "");
+}
 
 defineOptions({
   layout: {
@@ -60,8 +65,15 @@ defineOptions({
       :show-manage-actions="canManageWorkshops"
       empty-message="No workshops match the current filters."
     >
+      <template #cell-timing_status="{ row, value }">
+        <StatusBadge
+          :label="value === 'upcoming' ? 'Upcoming' : 'Closed'"
+          :badge-class="timingBadgeClass(row)"
+        />
+      </template>
       <template #row-actions="{ row }">
         <ManageRowActions
+          :view-href="adminWorkshops.show.url(Number(row.id))"
           :edit-href="adminWorkshops.edit.url(Number(row.id))"
           :delete-form="adminWorkshops.destroy.form(Number(row.id))"
           dialog-title="Delete workshop"
