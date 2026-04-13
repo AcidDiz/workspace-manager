@@ -23,17 +23,25 @@ class WorkshopStatisticsService
     {
         $now ??= now();
 
-        $totalWorkshops = Workshop::query()->count();
-        $upcomingWorkshops = Workshop::query()->where('starts_at', '>', $now)->count();
-        $closedWorkshops = Workshop::query()->where('starts_at', '<=', $now)->count();
+        $workshopStats = Workshop::query()
+            ->toBase()
+            ->selectRaw(
+                'COUNT(*) as total, SUM(CASE WHEN starts_at > ? THEN 1 ELSE 0 END) as upcoming, SUM(CASE WHEN starts_at <= ? THEN 1 ELSE 0 END) as closed',
+                [$now, $now]
+            )
+            ->first();
 
-        $confirmedRegistrations = WorkshopRegistration::query()
-            ->where('status', WorkshopRegistrationStatusEnum::Confirmed)
-            ->count();
+        $registrationRows = WorkshopRegistration::query()
+            ->toBase()
+            ->select('status')
+            ->selectRaw('COUNT(*) as cnt')
+            ->groupBy('status')
+            ->get();
 
-        $waitingListRegistrations = WorkshopRegistration::query()
-            ->where('status', WorkshopRegistrationStatusEnum::WaitingList)
-            ->count();
+        $confirmedRow = $registrationRows->firstWhere('status', WorkshopRegistrationStatusEnum::Confirmed->value);
+        $waitingRow = $registrationRows->firstWhere('status', WorkshopRegistrationStatusEnum::WaitingList->value);
+        $confirmedRegistrations = (int) ($confirmedRow?->cnt ?? 0);
+        $waitingListRegistrations = (int) ($waitingRow?->cnt ?? 0);
 
         $popularWorkshop = Workshop::query()
             ->withConfirmedRegistrationCount()
@@ -52,9 +60,9 @@ class WorkshopStatisticsService
 
         return [
             'workshops' => [
-                'total' => $totalWorkshops,
-                'upcoming' => $upcomingWorkshops,
-                'closed' => $closedWorkshops,
+                'total' => (int) ($workshopStats->total ?? 0),
+                'upcoming' => (int) ($workshopStats->upcoming ?? 0),
+                'closed' => (int) ($workshopStats->closed ?? 0),
             ],
             'registrations' => [
                 'confirmed' => $confirmedRegistrations,

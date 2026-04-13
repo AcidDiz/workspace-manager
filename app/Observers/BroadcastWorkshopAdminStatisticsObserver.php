@@ -19,7 +19,20 @@ class BroadcastWorkshopAdminStatisticsObserver
 
     public function updated(Workshop|WorkshopRegistration $model): void
     {
+        if (! $this->shouldBroadcastAfterUpdate($model)) {
+            return;
+        }
+
         $this->broadcast();
+    }
+
+    private function shouldBroadcastAfterUpdate(Workshop|WorkshopRegistration $model): bool
+    {
+        if ($model instanceof Workshop) {
+            return $model->wasChanged(['starts_at', 'ends_at', 'title']);
+        }
+
+        return $model->wasChanged(['status', 'workshop_id', 'user_id']);
     }
 
     public function deleted(Workshop|WorkshopRegistration $model): void

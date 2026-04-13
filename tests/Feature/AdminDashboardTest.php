@@ -5,6 +5,7 @@ use App\Models\User;
 use App\Models\Workshop;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Support\Facades\Event;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(fn () => $this->seed(RolePermissionSeeder::class));
@@ -45,4 +46,28 @@ test('admins receive the dashboard page with statistics props', function () {
 test('admin statistics updates broadcast immediately over reverb', function () {
     expect(new WorkshopAdminStatisticsUpdated([]))
         ->toBeInstanceOf(ShouldBroadcastNow::class);
+});
+
+test('workshop description update does not broadcast admin statistics', function () {
+    $workshop = Workshop::factory()->upcoming()->create(['description' => 'original']);
+
+    Event::fake([WorkshopAdminStatisticsUpdated::class]);
+
+    $workshop->update(['description' => 'revised']);
+
+    Event::assertNotDispatched(WorkshopAdminStatisticsUpdated::class);
+});
+
+test('workshop starts_at update broadcasts admin statistics', function () {
+    $workshop = Workshop::factory()->upcoming()->create();
+
+    Event::fake([WorkshopAdminStatisticsUpdated::class]);
+
+    $newStart = $workshop->starts_at->copy()->addDays(2);
+    $workshop->update([
+        'starts_at' => $newStart,
+        'ends_at' => $newStart->copy()->addHours(2),
+    ]);
+
+    Event::assertDispatched(WorkshopAdminStatisticsUpdated::class);
 });
