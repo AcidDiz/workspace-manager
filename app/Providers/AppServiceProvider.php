@@ -4,10 +4,14 @@ namespace App\Providers;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Mail\Events\MessageSending;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
+use Symfony\Component\Mime\Email;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -25,6 +29,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+        $this->configureOutgoingMailLogging();
     }
 
     /**
@@ -50,5 +55,50 @@ class AppServiceProvider extends ServiceProvider
         );
 
         JsonResource::withoutWrapping();
+    }
+
+    /**
+     * Log a copy of outgoing mail (in addition to SMTP / Mailtrap) when enabled.
+     */
+    protected function configureOutgoingMailLogging(): void
+    {
+        if (! config('mail.log_outgoing_messages')) {
+            return;
+        }
+
+        Event::listen(MessageSending::class, function (MessageSending $event): void {
+            $message = $event->message;
+            if (! $message instanceof Email) {
+                Log::debug('Mail outgoing (non-Email transport)', [
+                    'class' => $message::class,
+                ]);
+
+                return;
+            }
+
+            $text = $message->getTextBody();
+            $html = $message->getHtmlBody();
+            $preview = $text;
+            if ($preview === null && is_string($html)) {
+                $preview = strip_tags($html);
+            }
+            if (is_string($preview) && strlen($preview) > 2000) {
+                $preview = substr($preview, 0, 2000).'…';
+            }
+
+            $context = [
+                'subject' => $message->getSubject(),
+                'to' => collect($message->getTo())->map->getAddress()->values()->all(),
+                'from' => collect($message->getFrom())->map->getAddress()->values()->all(),
+                'preview' => $preview,
+            ];
+
+            $channel = config('mail.log_outgoing_channel');
+            if (is_string($channel) && $channel !== '') {
+                Log::channel($channel)->info('Mail outgoing', $context);
+            } else {
+                Log::info('Mail outgoing', $context);
+            }
+        });
     }
 }

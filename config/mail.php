@@ -115,4 +115,22 @@ return [
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Log outgoing messages (in addition to the active mailer)
+    |--------------------------------------------------------------------------
+    |
+    | When true, every message is also written to the application log (see
+    | MAIL_OUTGOING_LOG_CHANNEL) right before it is sent—useful with SMTP
+    | (e.g. Mailtrap) while keeping a local trace in laravel.log or mail.log.
+    |
+    */
+
+    'log_outgoing_messages' => filter_var(
+        env('MAIL_LOG_OUTGOING', false),
+        FILTER_VALIDATE_BOOLEAN
+    ),
+
+    'log_outgoing_channel' => env('MAIL_OUTGOING_LOG_CHANNEL'),
+
 ];
