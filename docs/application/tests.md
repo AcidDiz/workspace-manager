@@ -4,11 +4,11 @@ This application uses **Pest 4** on top of **PHPUnit**, with Laravel’s testing
 
 ## Layout
 
-| Directory | Role | Default suite (`phpunit.xml`) |
-| --------- | ---- | ----------------------------- |
-| `tests/Unit` | Fast, isolated tests (no full HTTP stack unless you opt in). | **Yes** — `Unit` |
-| `tests/Feature` | HTTP, Inertia, database, auth; uses `Tests\TestCase` + `LazilyRefreshDatabase` (see `tests/Pest.php`). | **Yes** — `Feature` |
-| `tests/Browser` | Pest browser plugin + Playwright (`visit()`, real browser). | **No** — run explicitly (see below). |
+| Directory       | Role                                                                                                   | Default suite (`phpunit.xml`)        |
+| --------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------ |
+| `tests/Unit`    | Fast, isolated tests (no full HTTP stack unless you opt in).                                           | **Yes** — `Unit`                     |
+| `tests/Feature` | HTTP, Inertia, database, auth; uses `Tests\TestCase` + `LazilyRefreshDatabase` (see `tests/Pest.php`). | **Yes** — `Feature`                  |
+| `tests/Browser` | Pest browser plugin + Playwright (`visit()`, real browser).                                            | **No** — run explicitly (see below). |
 
 Configuration:
 
@@ -69,11 +69,17 @@ php artisan test --compact tests/Feature/Domain/WorkshopDomainTest.php
 
 ### Browser tests (`tests/Browser`)
 
-Not included in the default `phpunit.xml` suites. Run:
+Not included in the default `phpunit.xml` suites.
+
+**`zend.assertions` for Pest Browser:** PHPUnit cannot set this on many PHP builds (INI-only). With Sail, enable assertions via the mounted file `docker/php/conf.d/zzz-pest-browser.ini` in `compose.yaml` (CLI conf.d inside the container). Recreate containers after adding the mount (`sail down && sail up -d`). Without it, `pest-plugin-browser` may fail with `sendText()` on `null`. Outside Docker/Sail, set the same directives in your **CLI** `php.ini` (or an included `.ini` under `conf.d/`) if you run `test:browser` on the host.
+
+Run:
 
 ```bash
 composer run test:browser -- --compact
 ```
+
+Example file: `tests/Browser/AdminWorkshopBrowserTest.php` (admin workshop create page, edit flow, delete confirmation).
 
 Prerequisites: Node dependencies and Playwright browsers, for example:
 
@@ -113,9 +119,9 @@ Feature tests that **render Inertia pages** need a resolvable Vite manifest (or 
 
 ## Related files
 
-| File | Purpose |
-| ---- | ------- |
-| `tests/Pest.php` | Pest bootstrapping, `Feature` + `Browser` TestCase binding. |
-| `tests/TestCase.php` | Base case; `skipUnlessFortifyHas()` helper. |
-| `phpunit.xml` | Suites, in-memory SQLite, testing env vars. |
-| `composer.json` scripts | `test`, `test:php`, `test:browser`, `ci:check`. |
+| File                    | Purpose                                                     |
+| ----------------------- | ----------------------------------------------------------- |
+| `tests/Pest.php`        | Pest bootstrapping, `Feature` + `Browser` TestCase binding. |
+| `tests/TestCase.php`    | Base case; `skipUnlessFortifyHas()` helper.                 |
+| `phpunit.xml`           | Suites, in-memory SQLite, testing env vars.                 |
+| `composer.json` scripts | `test`, `test:php`, `test:browser`, `ci:check`.             |

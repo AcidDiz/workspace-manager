@@ -55,15 +55,20 @@ Middleware: `auth`, `verified`, and Laravel `can:viewAny,App\Models\Workshop` (r
 
 | Method | URI              | Route name           | Typical response                                                                                                                                                                                                                                                                                                                                                                               |
 | ------ | ---------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/app/workshops` | `app.workshops.index` | **403** if the user cannot `viewAny` workshops. For admins (`workshops.manage`), this URI **redirects** to `admin.workshops.index` to keep the two areas distinct. For employees, returns Inertia `app/workshops/Index` with `workshopList`, `filters`, and employee **card** filters (`employeeFilterFields`). Query: optional `status` (`all` \| `upcoming` \| `closed`), `category_id`, `title`, `starts_on`. |
+| GET    | `/app/workshops` | `app.workshops.index` | **403** if the user cannot `viewAny` workshops. For admins (`workshops.manage`), this URI **redirects** to `admin.workshops.index` to keep the two areas distinct. For employees, returns Inertia `app/workshops/Index` with `workshopList`, `filters`, and **`cardFilterFields`** for the filter bar (not admin table columns). Query: optional `status` (`all` \| `upcoming` \| `closed`), `category_id`, `title`, `starts_on`. |
 
-#### Admin workshops index (manage permission)
+#### Admin workshops (manage permission)
 
-Middleware: `auth`, `verified`, and Laravel `can:create,App\Models\Workshop` (resolved via `WorkshopPolicy`: requires Spatie ability `workshops.manage`).
+All `/admin/workshops*` routes below use middleware: `auth`, `verified`. Listing and create use `can:create,App\Models\Workshop`; edit/update/destroy use `can:update,workshop` or `can:delete,workshop` as shown (resolved via `WorkshopPolicy` → Spatie `workshops.manage`).
 
-| Method | URI                | Route name             | Typical response                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| ------ | ------------------ | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/admin/workshops` | `admin.workshops.index` | **403** if the user cannot `create` workshops. Otherwise returns Inertia `admin/workshops/Index` with `workshopList`, `filters`, `showWorkshopTable` (true), and admin **table** metadata (`workshopTableColumns`). Query: optional `status` (`all` \| `upcoming` \| `closed`), `category_id`, `title`, `starts_on`, plus admin-only `created_by`. Admin table sorting: `sort` (`title` \| `starts_at` \| `category.name` \| `creator.name` \| `timing_status`) and `direction` (`asc` \| `desc`). |
+| Method | URI | Route name | Typical response |
+| ------ | --- | ---------- | ---------------- |
+| GET | `/admin/workshops` | `admin.workshops.index` | Inertia `admin/workshops/Index`; table, filters, optional `sort` / `direction`. **403** without manage permission. |
+| GET | `/admin/workshops/create` | `admin.workshops.create` | Inertia `admin/workshops/Create` with `categories`. |
+| POST | `/admin/workshops` | `admin.workshops.store` | Validates body; **302** to index + flash toast on success. |
+| GET | `/admin/workshops/{workshop}/edit` | `admin.workshops.edit` | Inertia `admin/workshops/Edit` with `workshop` + `categories`. |
+| PUT | `/admin/workshops/{workshop}` | `admin.workshops.update` | **302** to index + flash toast. |
+| DELETE | `/admin/workshops/{workshop}` | `admin.workshops.destroy` | **302** to index + flash toast; DB cascades registrations. |
 
 **Unauthenticated** access to these URIs redirects to Fortify login (or equivalent) before authorization runs.
 

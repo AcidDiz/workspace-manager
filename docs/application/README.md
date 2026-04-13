@@ -9,7 +9,7 @@ For installation, running the stack, and quality commands, use the root [`../STA
 | Folder / file                        | Purpose                                                                           |
 | ------------------------------------ | --------------------------------------------------------------------------------- |
 | [`README.md`](README.md) (this file) | Index: reading order and links to all application docs.                           |
-| [`workshops.md`](workshops.md)       | Workshop domain: models, filter/sort scope traits, `BuildWorkshopIndexData`, table column metadata, read-only listing UI, tests, known gaps. |
+| [`workshops.md`](workshops.md)       | Workshop domain: models, filter/sort scope traits, `WorkshopUserFilters` / `WorkshopAdminFilters`, table column metadata, read-only listing UI, tests, known gaps. |
 | [`tests.md`](tests.md)               | How tests are organised, created, and run (Pest, Feature, Browser, SQLite, Vite). |
 
 ## Suggested reading order

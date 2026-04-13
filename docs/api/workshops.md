@@ -20,11 +20,26 @@ Route::middleware(['can:viewAny,'.Workshop::class])
         Route::get('workshops', AppWorkshopIndexController::class)->name('workshops.index');
     });
 
-Route::middleware(['can:create,'.Workshop::class])
-    ->prefix('admin')
+Route::prefix('admin')
     ->as('admin.')
     ->group(function () {
-        Route::get('workshops', AdminWorkshopIndexController::class)->name('workshops.index');
+        Route::middleware(['can:create,'.Workshop::class])->group(function () {
+            Route::get('workshops', AdminWorkshopIndexController::class)->name('workshops.index');
+            Route::get('workshops/create', WorkshopCreateController::class)->name('workshops.create');
+            Route::post('workshops', WorkshopStoreController::class)->name('workshops.store');
+        });
+
+        Route::get('workshops/{workshop}/edit', WorkshopEditController::class)
+            ->middleware(['can:update,workshop'])
+            ->name('workshops.edit');
+
+        Route::put('workshops/{workshop}', WorkshopUpdateController::class)
+            ->middleware(['can:update,workshop'])
+            ->name('workshops.update');
+
+        Route::delete('workshops/{workshop}', WorkshopDestroyController::class)
+            ->middleware(['can:delete,workshop'])
+            ->name('workshops.destroy');
     });
 ```
 
@@ -32,6 +47,18 @@ Route::middleware(['can:create,'.Workshop::class])
 | ---------------------- | ----------------------- | ----------------------------------------------------- | ---------------------------------------------------- |
 | `GET /app/workshops`   | `app.workshops.index`   | `auth`, `verified`, `can:viewAny,App\Models\Workshop` | `WorkshopPolicy::viewAny` → Spatie `workshops.view`  |
 | `GET /admin/workshops` | `admin.workshops.index` | `auth`, `verified`, `can:create,App\Models\Workshop`  | `WorkshopPolicy::create` → Spatie `workshops.manage` |
+
+Additional **admin workshop management** routes (same `auth` + `verified` prefix; see `routes/web.php`):
+
+| Method   | URI                                | Route name                | Middleware (extra)               | Policy / ability              |
+| -------- | ---------------------------------- | ------------------------- | -------------------------------- | ----------------------------- |
+| `GET`    | `/admin/workshops/create`          | `admin.workshops.create`  | `can:create,App\Models\Workshop` | `create` → `workshops.manage` |
+| `POST`   | `/admin/workshops`                 | `admin.workshops.store`   | `can:create,App\Models\Workshop` | `create` → `workshops.manage` |
+| `GET`    | `/admin/workshops/{workshop}/edit` | `admin.workshops.edit`    | `can:update,workshop`            | `update` → `workshops.manage` |
+| `PUT`    | `/admin/workshops/{workshop}`      | `admin.workshops.update`  | `can:update,workshop`            | `update` → `workshops.manage` |
+| `DELETE` | `/admin/workshops/{workshop}`      | `admin.workshops.destroy` | `can:delete,workshop`            | `delete` → `workshops.manage` |
+
+`{workshop}` is route-model bound to `App\Models\Workshop`.
 
 Unauthenticated users are redirected to Fortify login before these middleware run.
 
@@ -55,7 +82,7 @@ Both controllers type-hint `ListWorkshopsIndexRequest`. It:
 | `sort`        | `title`, `category.name`, `starts_at`, `creator.name`, `timing_status` | **Not in rules**                   | Allowed                    |
 | `direction`   | `asc` \| `desc`                                                        | **Not in rules**                   | Allowed                    |
 
-**Effective default for `status`:** when `status` is omitted, `App\Support\Filters\Workshops\BuildWorkshopIndexData` applies `upcoming` for users **without** `workshops.manage` and `all` for users **with** `workshops.manage`. The `filters.status` prop echoed to the UI remains `null` until the user selects a value.
+**Effective default for `status`:** when `status` is omitted, `WorkshopUserFilters` applies `upcoming` on **`GET /app/workshops`** and `WorkshopAdminFilters` applies `all` on **`GET /admin/workshops`**. The `filters.status` prop echoed to the UI remains `null` until the user selects a value.
 
 Invalid query values result in a normal Laravel validation response (typically **redirect back** with session errors for a full-page GET).
 
@@ -65,14 +92,37 @@ Invalid query values result in a normal Laravel validation response (typically *
 
 - Resolves the authenticated user (must be non-null under `auth`).
 - If the user **`can('workshops.manage')`**, returns **`302`** to `route('admin.workshops.index', $request->query())` so admins always land on the admin Inertia page with the same query string.
-- Otherwise calls `BuildWorkshopIndexData::handle($user, $request->validated())` and renders Inertia page **`app/workshops/Index`**.
+- Otherwise calls `WorkshopUserFilters::index($request->validated())` and renders Inertia page **`app/workshops/Index`** with **`workshopList`**, **`filters`**, **`cardFilterFields`** (no table column props).
 
 ### `App\Http\Controllers\Admin\Workshops\WorkshopIndexController`
 
-- Calls `BuildWorkshopIndexData::handle($user, $request->validated())` and renders Inertia page **`admin/workshops/Index`**.
+- Calls `WorkshopAdminFilters::index($request->validated())` and renders Inertia page **`admin/workshops/Index`** with **`workshopList`**, **`filters`**, **`workshopTableColumns`** (no card filter props).
 - No redirect; only users who pass `can:create,Workshop` reach this action.
 
-Both controllers pass the same **prop keys**; values differ by role (table vs cards, column metadata, etc.).
+Index prop keys are **split by route**: the app page never receives `workshopTableColumns`; the admin page never receives `cardFilterFields`.
+
+### Admin CRUD (invokable controllers under `Admin\Workshops\`)
+
+| Controller                  | Route                                 | Typical success                                                                                                          |
+| --------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `WorkshopCreateController`  | `GET admin/workshops/create`          | `200`, Inertia `admin/workshops/Create`, props: `categories` (`id`, `name`).                                             |
+| `WorkshopStoreController`   | `POST admin/workshops`                | `302` to `admin.workshops.index`, `Inertia::flash('toast', …)` success message. Body: see **Store / update body** below. |
+| `WorkshopEditController`    | `GET admin/workshops/{workshop}/edit` | `200`, Inertia `admin/workshops/Edit`, props: `categories`, `workshop` (form payload from `WorkshopFormResource`).       |
+| `WorkshopUpdateController`  | `PUT admin/workshops/{workshop}`      | Same redirect + flash as store. Body: same fields as store.                                                              |
+| `WorkshopDestroyController` | `DELETE admin/workshops/{workshop}`   | Same redirect + flash. **DB cascade** removes related `workshop_registrations`.                                          |
+
+**Store / update body** (form / `multipart` or `x-www-form-urlencoded`; validated by `StoreWorkshopRequest` / `UpdateWorkshopRequest`):
+
+| Field                  | Rules (summary)                                                                       |
+| ---------------------- | ------------------------------------------------------------------------------------- |
+| `title`                | required, string, max 255                                                             |
+| `description`          | optional string                                                                       |
+| `workshop_category_id` | optional, integer, exists in `workshop_categories`; empty string normalised to `null` |
+| `starts_at`            | required, valid date (HTML `datetime-local` accepted)                                 |
+| `ends_at`              | required, date, must be **after** `starts_at`                                         |
+| `capacity`             | required, integer, 1–100000                                                           |
+
+Validation failures: **redirect back** with session errors (Inertia will re-render the previous page with `errors`).
 
 ## Inertia page props (successful GET)
 
@@ -84,13 +134,12 @@ Shared props from `HandleInertiaRequests` (relevant subset):
 
 Page-specific props from the workshop index controllers:
 
-| Prop                   | Type      | Notes                                                                                                                          |
-| ---------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `workshopList`         | `array`   | Resolved `WorkshopListItemResource` collection (no wrapper array; see `AppServiceProvider` `JsonResource::withoutWrapping()`). |
-| `filters`              | `object`  | Echo of active / requested filters (see below).                                                                                |
-| `showWorkshopTable`    | `boolean` | `true` only when `workshops.manage`.                                                                                           |
-| `workshopTableColumns` | `array`   | Non-empty for admin; empty array for employee.                                                                                 |
-| `employeeFilterFields` | `array`   | Non-empty for employee; empty array for admin.                                                                                 |
+| Prop                   | Type      | Present on              | Notes                                                                                                                          |
+| ---------------------- | --------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `workshopList`         | `array`   | app + admin             | Resolved `WorkshopListItemResource` collection (no wrapper array; see `AppServiceProvider` `JsonResource::withoutWrapping()`). |
+| `filters`              | `object`  | app + admin             | Echo of active / requested filters (see below).                                                                                |
+| `cardFilterFields`     | `array`   | **app** index only      | Filter bar field defs for the card UI (`param`, `label`, `input_type`, optional `options`).                                    |
+| `workshopTableColumns` | `array`   | **admin** index only    | Non-empty; includes a final **`_actions`** column with `cast_type` `actions`.                                                |
 
 ### `filters` shape
 
@@ -144,7 +193,7 @@ Cookie: <session>
 Accept: text/html
 ```
 
-**Typical success:** `200 OK`, Inertia component `app/workshops/Index`, props as above with `showWorkshopTable: false`, `employeeFilterFields` populated.
+**Typical success:** `200 OK`, Inertia component `app/workshops/Index`, props: `workshopList`, `filters`, `cardFilterFields` (no `workshopTableColumns`).
 
 ### Employee — filtered
 
@@ -175,24 +224,33 @@ Cookie: <session>
 Accept: text/html
 ```
 
-**Typical success:** `200 OK`, Inertia component `admin/workshops/Index`, `showWorkshopTable: true`, `workshopTableColumns` non-empty.
+**Typical success:** `200 OK`, Inertia component `admin/workshops/Index`, props: `workshopList`, `filters`, `workshopTableColumns` non-empty (no `cardFilterFields`).
 
 ## Failure cases (summary)
 
-| Condition                                                      | Typical response                                                             |
-| -------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| Guest                                                          | Redirect to login (Fortify).                                                 |
-| Authenticated but cannot `viewAny` workshop                    | **403** on both URIs (FormRequest `authorize` fails before controller body). |
-| Employee hitting `/admin/workshops` without `workshops.manage` | **403** from `can:create` middleware.                                        |
-| Invalid query parameters                                       | Validation error (redirect with session errors or equivalent).               |
+| Condition                                                                                       | Typical response                                                             |
+| ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Guest                                                                                           | Redirect to login (Fortify).                                                 |
+| Authenticated but cannot `viewAny` workshop                                                     | **403** on both URIs (FormRequest `authorize` fails before controller body). |
+| Employee hitting `/admin/workshops` (or any admin workshop CRUD URI) without `workshops.manage` | **403** from `can:*` middleware.                                             |
+| Invalid query parameters (index GET)                                                            | Validation error (redirect with session errors or equivalent).               |
+| Invalid POST/PUT body (create / update)                                                         | Redirect back with session validation errors.                                |
 
 ## Related files
 
-| File                                                               | Role                               |
-| ------------------------------------------------------------------ | ---------------------------------- |
-| `routes/web.php`                                                   | Registers prefixes and middleware. |
-| `app/Http/Controllers/App/Workshops/WorkshopIndexController.php`   | App entry + admin redirect.        |
-| `app/Http/Controllers/Admin/Workshops/WorkshopIndexController.php` | Admin entry.                       |
-| `app/Http/Requests/Workshops/ListWorkshopsIndexRequest.php`        | Authorization + query validation.  |
-| `app/Support/Filters/Workshops/BuildWorkshopIndexData.php`         | Query + metadata for both pages.   |
-| `app/Http/Resources/Workshop/WorkshopListItemResource.php`         | `workshopList` row shape.          |
+| File                                                                 | Role                               |
+| -------------------------------------------------------------------- | ---------------------------------- |
+| `routes/web.php`                                                     | Registers prefixes and middleware. |
+| `app/Http/Controllers/App/Workshops/WorkshopIndexController.php`     | App entry + admin redirect.        |
+| `app/Http/Controllers/Admin/Workshops/WorkshopIndexController.php`   | Admin index.                       |
+| `app/Http/Controllers/Admin/Workshops/WorkshopCreateController.php`  | Admin create form.                 |
+| `app/Http/Controllers/Admin/Workshops/WorkshopStoreController.php`   | Admin create persist.              |
+| `app/Http/Controllers/Admin/Workshops/WorkshopEditController.php`    | Admin edit form.                   |
+| `app/Http/Controllers/Admin/Workshops/WorkshopUpdateController.php`  | Admin update persist.              |
+| `app/Http/Controllers/Admin/Workshops/WorkshopDestroyController.php` | Admin delete.                      |
+| `app/Http/Requests/Workshops/ListWorkshopsIndexRequest.php`          | Authorization + query validation.  |
+| `app/Http/Requests/Workshops/StoreWorkshopRequest.php`               | Admin create validation.           |
+| `app/Http/Requests/Workshops/UpdateWorkshopRequest.php`              | Admin update validation.           |
+| `app/Support/Filters/Workshops/WorkshopUserFilters.php`              | Non-admin index query + `cardFilterFields`.                      |
+| `app/Support/Filters/Workshops/WorkshopAdminFilters.php`             | Admin index query + `workshopTableColumns`.                      |
+| `app/Http/Resources/Workshop/WorkshopListItemResource.php`           | `workshopList` row shape.          |
