@@ -19,6 +19,7 @@ services:
             IGNITION_LOCAL_SITES_PATH: '${PWD}'
         volumes:
             - '.:/var/www/html'
+            - './docker/php/conf.d/zzz-pest-browser.ini:/etc/php/8.5/cli/conf.d/zzz-pest-browser.ini'
         networks:
             - sail
         depends_on:
