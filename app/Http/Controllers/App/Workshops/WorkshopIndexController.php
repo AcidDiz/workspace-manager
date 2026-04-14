@@ -8,6 +8,7 @@ use App\Http\Resources\Workshop\WorkshopListItemResource;
 use App\Models\Workshop;
 use App\Models\WorkshopRegistration;
 use App\Support\Filters\Workshops\WorkshopUserFilters;
+use App\Support\Workshop\WorkshopWaitingListPositions;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -35,10 +36,12 @@ class WorkshopIndexController extends Controller
                 ->get()
                 ->keyBy('workshop_id');
         }
+        $waitingListPositions = WorkshopWaitingListPositions::forUserRegistrations($registrationByWorkshopId->values());
 
-        $workshopList = $workshops->map(function (Workshop $workshop) use ($request, $registrationByWorkshopId) {
+        $workshopList = $workshops->map(function (Workshop $workshop) use ($request, $registrationByWorkshopId, $waitingListPositions) {
             $resource = new WorkshopListItemResource($workshop);
             $resource->myRegistrationStatus = $registrationByWorkshopId->get($workshop->id)?->status;
+            $resource->myWaitingListPosition = $waitingListPositions[$workshop->id] ?? null;
 
             return $resource->resolve($request);
         })->all();

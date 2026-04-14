@@ -19,6 +19,8 @@ class WorkshopListItemResource extends JsonResource
      */
     public ?WorkshopRegistrationStatusEnum $myRegistrationStatus = null;
 
+    public ?int $myWaitingListPosition = null;
+
     /**
      * @return array<string, mixed>
      */
@@ -61,6 +63,7 @@ class WorkshopListItemResource extends JsonResource
             'timing_status' => $isFuture ? 'upcoming' : 'closed',
             'timing_status_badge_class' => $timingEnum->badgeClassName(),
             'my_registration_status' => $this->myRegistrationStatus?->value,
+            'my_waiting_list_position' => $this->myWaitingListPosition,
         ];
     }
 }

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\Workshop\WorkshopListItemResource;
 use App\Models\Workshop;
 use App\Models\WorkshopRegistration;
+use App\Support\Workshop\WorkshopWaitingListPositions;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -24,6 +25,7 @@ class DashboardIndexController extends Controller
             ->get()
             ->filter(fn (WorkshopRegistration $registration) => $registration->workshop !== null)
             ->keyBy('workshop_id');
+        $waitingListPositions = WorkshopWaitingListPositions::forUserRegistrations($registrations->values());
 
         $upcomingWorkshopIds = $registrations
             ->filter(fn (WorkshopRegistration $registration) => $registration->workshop?->starts_at->isFuture())
@@ -42,12 +44,14 @@ class DashboardIndexController extends Controller
             'upcomingRegistrations' => $this->resolveWorkshopList(
                 $request,
                 $this->loadWorkshops($upcomingWorkshopIds->all()),
-                $registrations
+                $registrations,
+                $waitingListPositions
             ),
             'completedWorkshops' => $this->resolveWorkshopList(
                 $request,
                 $this->loadWorkshops($completedWorkshopIds->all()),
-                $registrations
+                $registrations,
+                $waitingListPositions
             ),
         ]);
     }
@@ -74,13 +78,15 @@ class DashboardIndexController extends Controller
     /**
      * @param  Collection<int, Workshop>  $workshops
      * @param  \Illuminate\Support\Collection<int, WorkshopRegistration>  $registrations
+     * @param  array<int, int>  $waitingListPositions
      * @return array<int, array<string, mixed>>
      */
-    private function resolveWorkshopList(Request $request, Collection $workshops, \Illuminate\Support\Collection $registrations): array
+    private function resolveWorkshopList(Request $request, Collection $workshops, \Illuminate\Support\Collection $registrations, array $waitingListPositions): array
     {
-        return $workshops->map(function (Workshop $workshop) use ($request, $registrations): array {
+        return $workshops->map(function (Workshop $workshop) use ($request, $registrations, $waitingListPositions): array {
             $resource = new WorkshopListItemResource($workshop);
             $resource->myRegistrationStatus = $registrations->get($workshop->id)?->status;
+            $resource->myWaitingListPosition = $waitingListPositions[$workshop->id] ?? null;
 
             return $resource->resolve($request);
         })->all();
