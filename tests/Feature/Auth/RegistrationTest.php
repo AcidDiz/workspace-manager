@@ -1,9 +1,12 @@
 <?php
 
+use App\Models\User;
+use Database\Seeders\RolePermissionSeeder;
 use Laravel\Fortify\Features;
 
 beforeEach(function () {
     $this->skipUnlessFortifyHas(Features::registration());
+    $this->seed(RolePermissionSeeder::class);
 });
 
 test('registration screen can be rendered', function () {
@@ -22,4 +25,8 @@ test('new users can register', function () {
 
     $this->assertAuthenticated();
     $response->assertRedirect(route('dashboard', absolute: false));
+
+    $registered = User::query()->where('email', 'test@example.com')->first();
+    expect($registered)->not->toBeNull()
+        ->and($registered->hasRole('employee'))->toBeTrue();
 });
