@@ -115,11 +115,11 @@ For **HTTP routes, query parameters, and Inertia response props** for the worksh
 
 1. **Effective status** — `requestedStatus` from `validated['status']` (may be null). If null: **user** path uses `upcoming`; **admin** path uses `all`.
 2. **Eloquent chain** (scopes on `Workshop`):
-    - `withIndexRelations()` — eager `category`, `creator`.
-    - `status($effectiveStatus)` — `upcoming` / `closed` narrow by `starts_at`; `all` leaves the query unchanged.
-    - `filterCategoryId`, `searchTitle`, `startsOn` — optional filters from the query string.
-    - **Admin only (`WorkshopAdminFilters`):** `createdBy` when `created_by` is present; `sortForAdminIndex($sort, $direction)` when `sort` is present (direction only with an explicit sort). If `sort` is empty/unknown, `sortForAdminIndex` falls back per `WorkshopSortScopes`.
-    - **User only (`WorkshopUserFilters`):** `indexOrder()` after filters (no admin sort).
+   - `withIndexRelations()` — eager `category`, `creator`.
+   - `status($effectiveStatus)` — `upcoming` / `closed` narrow by `starts_at`; `all` leaves the query unchanged.
+   - `filterCategoryId`, `searchTitle`, `startsOn` — optional filters from the query string.
+   - **Admin only (`WorkshopAdminFilters`):** `createdBy` when `created_by` is present; `sortForAdminIndex($sort, $direction)` when `sort` is present (direction only with an explicit sort). If `sort` is empty/unknown, `sortForAdminIndex` falls back per `WorkshopSortScopes`.
+   - **User only (`WorkshopUserFilters`):** `indexOrder()` after filters (no admin sort).
 3. **Supporting queries** — `WorkshopCategory` ordered by name on both paths; **admin only**, distinct `created_by` → `User` rows for the “Created by” filter options.
 4. **Response shape** — `filters` echoes the **requested** `status` (not the effective default), plus other validated keys. **App** response adds `cardFilterFields` only; **admin** adds `workshopTableColumns` only.
 

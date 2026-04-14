@@ -96,25 +96,46 @@ Or use the Sail script:
 ./vendor/bin/sail up -d
 ```
 
-### 5. Generate the application key inside Sail
+### 5. Configure your local hosts file for the default app URL
+
+The default `.env.example` uses:
+
+```dotenv
+APP_URL=http://workshop-manager.local:8080
+```
+
+If you keep that hostname, add this entry to your local `hosts` file:
+
+```text
+127.0.0.1 workshop-manager.local
+```
+
+Typical locations:
+
+- macOS / Linux: `/etc/hosts`
+- Windows: `C:\Windows\System32\drivers\etc\hosts`
+
+If you prefer to use `http://127.0.0.1:8080` or `http://localhost:8080` instead, update `APP_URL` accordingly in `.env`. When using Reverb in the browser, keep `VITE_REVERB_HOST` aligned with the same hostname you use to open the app.
+
+### 6. Generate the application key inside Sail
 
 ```bash
 ./vendor/bin/sail artisan key:generate
 ```
 
-### 6. Install frontend dependencies inside Sail
+### 7. Install frontend dependencies inside Sail
 
 ```bash
 ./vendor/bin/sail npm install
 ```
 
-### 7. Run migrations inside Sail
+### 8. Run migrations inside Sail
 
 ```bash
 ./vendor/bin/sail artisan migrate
 ```
 
-### 8. Seed required application data inside Sail
+### 9. Seed required application data inside Sail
 
 `db:seed` is part of the base setup for this project, not just optional sample content. It provisions:
 
@@ -128,7 +149,7 @@ Run:
 ./vendor/bin/sail artisan db:seed
 ```
 
-### 9. Build assets or start the dev server
+### 10. Build assets or start the dev server
 
 One-off production build:
 
