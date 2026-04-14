@@ -2,16 +2,20 @@
 import { Head, Link } from "@inertiajs/vue3";
 import { computed } from "vue";
 import StatCard from "@/components/cards/StatCard.vue";
+import WorkshopCard from "@/components/cards/WorkshopCard.vue";
 import Heading from "@/components/Heading.vue";
 import { Button } from "@/components/ui/button";
 import app from "@/routes/app";
 import appWorkshops from "@/routes/app/workshops";
+import type { WorkshopListItem } from "@/types/models";
 
 const props = defineProps<{
   registrationSummary: {
     confirmed: number;
     waiting_list: number;
   };
+  upcomingRegistrations: WorkshopListItem[];
+  completedWorkshops: WorkshopListItem[];
 }>();
 
 const nf = new Intl.NumberFormat(undefined);
@@ -55,5 +59,49 @@ defineOptions({
         <Link :href="appWorkshops.index.url()"> Browse workshops </Link>
       </Button>
     </div>
+
+    <section class="flex flex-col gap-3">
+      <div class="flex items-end justify-between gap-3">
+        <div>
+          <h2 class="text-lg font-semibold">Your upcoming workshops</h2>
+          <p class="text-sm text-muted-foreground">
+            Sessions you are confirmed for or currently waiting on.
+          </p>
+        </div>
+      </div>
+
+      <ul
+        v-if="upcomingRegistrations.length"
+        class="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
+      >
+        <li v-for="workshop in upcomingRegistrations" :key="workshop.id">
+          <WorkshopCard :workshop="workshop" />
+        </li>
+      </ul>
+      <p v-else class="text-sm text-muted-foreground">
+        You are not registered for any upcoming workshops yet.
+      </p>
+    </section>
+
+    <section class="flex flex-col gap-3">
+      <div>
+        <h2 class="text-lg font-semibold">Completed workshops</h2>
+        <p class="text-sm text-muted-foreground">
+          Workshops you completed in the past as a confirmed participant.
+        </p>
+      </div>
+
+      <ul
+        v-if="completedWorkshops.length"
+        class="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
+      >
+        <li v-for="workshop in completedWorkshops" :key="workshop.id">
+          <WorkshopCard :workshop="workshop" />
+        </li>
+      </ul>
+      <p v-else class="text-sm text-muted-foreground">
+        No completed workshops yet.
+      </p>
+    </section>
   </div>
 </template>

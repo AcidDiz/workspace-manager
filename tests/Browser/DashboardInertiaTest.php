@@ -18,5 +18,7 @@ test('user can log in and reach the app dashboard', function () {
         ->click('Log in')
         ->assertPathIs('/app/dashboard')
         ->assertTitle('Dashboard - Workshop Manager')
+        ->assertSee('Your upcoming workshops')
+        ->assertSee('Completed workshops')
         ->assertNoJavaScriptErrors();
 });

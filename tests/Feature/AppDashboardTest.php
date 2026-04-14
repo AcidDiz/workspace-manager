@@ -27,14 +27,28 @@ test('employees see the app dashboard with registration summary', function () {
     $admin = User::factory()->create();
     $admin->assignRole('admin');
 
-    $workshop = Workshop::factory()->upcoming()->create([
+    $upcomingWorkshop = Workshop::factory()->upcoming()->create([
         'created_by' => $admin->id,
+    ]);
+
+    $pastStart = now()->subDays(5)->startOfHour();
+    $completedWorkshop = Workshop::factory()->create([
+        'created_by' => $admin->id,
+        'starts_at' => $pastStart,
+        'ends_at' => $pastStart->copy()->addHours(2),
     ]);
 
     WorkshopRegistration::factory()
         ->confirmed()
         ->create([
-            'workshop_id' => $workshop->id,
+            'workshop_id' => $upcomingWorkshop->id,
+            'user_id' => $employee->id,
+        ]);
+
+    WorkshopRegistration::factory()
+        ->confirmed()
+        ->create([
+            'workshop_id' => $completedWorkshop->id,
             'user_id' => $employee->id,
         ]);
 
@@ -43,6 +57,10 @@ test('employees see the app dashboard with registration summary', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('app/dashboard/Index')
-            ->where('registrationSummary.confirmed', 1)
-            ->where('registrationSummary.waiting_list', 0));
+            ->where('registrationSummary.confirmed', 2)
+            ->where('registrationSummary.waiting_list', 0)
+            ->has('upcomingRegistrations', 1)
+            ->where('upcomingRegistrations.0.id', $upcomingWorkshop->id)
+            ->has('completedWorkshops', 1)
+            ->where('completedWorkshops.0.id', $completedWorkshop->id));
 });
