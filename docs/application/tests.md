@@ -20,7 +20,7 @@ Configuration:
 Preferred generator:
 
 ```bash
-php artisan make:test WorkshopExampleTest --pest
+./vendor/bin/sail artisan make:test WorkshopExampleTest --pest
 ```
 
 - Put **feature** specs under `tests/Feature/` (or a subfolder such as `tests/Feature/Domain/`).
@@ -39,56 +39,35 @@ php artisan make:test WorkshopExampleTest --pest
 ### Default command (Unit + Feature only)
 
 ```bash
-php artisan test --compact
+./vendor/bin/sail artisan test --compact
 ```
 
-Or via Composer (also runs **Pint** in `--test` mode first):
+Or via Composer inside Sail (also runs **Pint** in `--test` mode first):
 
 ```bash
-composer run test
+./vendor/bin/sail composer run test
 ```
 
 PHP only (no Pint gate):
 
 ```bash
-composer run test:php -- --compact
-```
-
-With **Sail**:
-
-```bash
-./vendor/bin/sail artisan test --compact
+./vendor/bin/sail composer run test:php -- --compact
 ```
 
 ### Filtering
 
 ```bash
-php artisan test --compact --filter=WorkshopIndexTest
-php artisan test --compact tests/Feature/Domain/WorkshopDomainTest.php
+./vendor/bin/sail artisan test --compact --filter=WorkshopIndexTest
+./vendor/bin/sail artisan test --compact tests/Feature/Domain/WorkshopDomainTest.php
 ```
 
 ### Browser tests (`tests/Browser`)
 
 Not included in the default `phpunit.xml` suites.
 
-**`zend.assertions` for Pest Browser:** PHPUnit cannot set this on many PHP builds (INI-only). With Sail, enable assertions via the mounted file `docker/php/conf.d/zzz-pest-browser.ini` in `compose.yaml` (CLI conf.d inside the container). Recreate containers after adding the mount (`sail down && sail up -d`). Without it, `pest-plugin-browser` may fail with `sendText()` on `null`. Outside Docker/Sail, set the same directives in your **CLI** `php.ini` (or an included `.ini` under `conf.d/`) if you run `test:browser` on the host.
+**`zend.assertions` for Pest Browser:** PHPUnit cannot set this on many PHP builds (INI-only). In this project, assertions are enabled in Sail via the mounted file `docker/php/conf.d/zzz-pest-browser.ini` in `compose.yaml` (CLI conf.d inside the container). Recreate containers after adding or changing that mount (`sail down && sail up -d`). Without it, `pest-plugin-browser` may fail with `sendText()` on `null`.
 
-Run:
-
-```bash
-composer run test:browser -- --compact
-```
-
-Example file: `tests/Browser/AdminWorkshopBrowserTest.php` (admin workshop create page, edit flow, delete confirmation).
-
-Prerequisites: Node dependencies and Playwright browsers, for example:
-
-```bash
-npm install
-npx playwright install
-```
-
-With Sail (from the app root):
+Run inside Sail:
 
 ```bash
 ./vendor/bin/sail npm install
@@ -96,10 +75,12 @@ With Sail (from the app root):
 ./vendor/bin/sail composer run test:browser -- --compact
 ```
 
+Example file: `tests/Browser/AdminWorkshopBrowserTest.php` (admin workshop create page, edit flow, delete confirmation).
+
 ## Database and environment
 
 - **Default:** `DB_CONNECTION=sqlite`, `DB_DATABASE=:memory:` (see `phpunit.xml`). No MySQL required for the standard suite.
-- **Host PHP without `pdo_sqlite`:** tests fail with “could not find driver”. Fix by installing the SQLite PDO extension or running tests **inside Sail**, where extensions are present.
+- **PHP extensions:** the supported path for this repo is to run tests **inside Sail**, where the required extensions are already present.
 - **MySQL:** override env vars when you need engine-specific behaviour, e.g.:
 
 ```bash
@@ -110,12 +91,12 @@ DB_CONNECTION=mysql DB_HOST=mysql DB_DATABASE=testing ./vendor/bin/sail artisan 
 
 Feature tests that **render Inertia pages** need a resolvable Vite manifest (or dev server):
 
-- Run **`npm run build`** once, or keep **`npm run dev`** running so `public/hot` / manifest matches current page components.
+- Run **`./vendor/bin/sail npm run build`** once, or keep **`./vendor/bin/sail npm run dev`** running so `public/hot` / manifest matches current page components.
 - If a new Vue page is missing from the built manifest, you may see Vite/manifest errors during `get()` assertions.
 
 ## CI-style checks
 
-`composer run ci:check` runs frontend lint/format/types plus `composer run test` (includes Pint `--test` before PHPUnit/Pest).
+`./vendor/bin/sail composer run ci:check` runs frontend lint/format/types plus `composer run test` (includes Pint `--test` before PHPUnit/Pest).
 
 ## Related files
 
