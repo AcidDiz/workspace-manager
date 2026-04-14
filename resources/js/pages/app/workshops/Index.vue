@@ -1,17 +1,41 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
+import { ref, watch } from 'vue';
 import WorkshopCard from '@/components/cards/WorkshopCard.vue';
 import Heading from '@/components/Heading.vue';
 import FiltersBar from '@/components/tables/FiltersBar.vue';
 import type { FilterBarField } from '@/components/tables/types';
+import {
+    applyRealtimeWorkshopRegistrationState,
+    useRealtimeWorkshopRegistrationState,
+} from '@/composables/useRealtimeWorkshopRegistrationState';
 import appWorkshops from '@/routes/app/workshops';
 import type { WorkshopListItem } from '@/types/models';
 
-defineProps<{
+const props = defineProps<{
     workshopList: WorkshopListItem[];
     filters: Record<string, unknown>;
     cardFilterFields: FilterBarField[];
 }>();
+
+const workshopList = ref<WorkshopListItem[]>([...props.workshopList]);
+
+watch(
+    () => props.workshopList,
+    (next) => {
+        workshopList.value = [...next];
+    },
+    { deep: true },
+);
+
+useRealtimeWorkshopRegistrationState({
+    applyState: (payload) => {
+        workshopList.value = applyRealtimeWorkshopRegistrationState(
+            workshopList.value,
+            payload,
+        );
+    },
+});
 
 const indexUrl = (query: Record<string, string>) =>
     appWorkshops.index.url({ query });

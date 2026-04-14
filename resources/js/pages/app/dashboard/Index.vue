@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import StatCard from '@/components/cards/StatCard.vue';
 import WorkshopCard from '@/components/cards/WorkshopCard.vue';
 import Heading from '@/components/Heading.vue';
 import { Button } from '@/components/ui/button';
+import {
+    applyRealtimeWorkshopRegistrationState,
+    useRealtimeWorkshopRegistrationState,
+} from '@/composables/useRealtimeWorkshopRegistrationState';
 import app from '@/routes/app';
 import appWorkshops from '@/routes/app/workshops';
 import type { WorkshopListItem } from '@/types/models';
@@ -17,6 +21,42 @@ const props = defineProps<{
     upcomingRegistrations: WorkshopListItem[];
     completedWorkshops: WorkshopListItem[];
 }>();
+
+const upcomingRegistrations = ref<WorkshopListItem[]>([
+    ...props.upcomingRegistrations,
+]);
+const completedWorkshops = ref<WorkshopListItem[]>([
+    ...props.completedWorkshops,
+]);
+
+watch(
+    () => props.upcomingRegistrations,
+    (next) => {
+        upcomingRegistrations.value = [...next];
+    },
+    { deep: true },
+);
+
+watch(
+    () => props.completedWorkshops,
+    (next) => {
+        completedWorkshops.value = [...next];
+    },
+    { deep: true },
+);
+
+useRealtimeWorkshopRegistrationState({
+    applyState: (payload) => {
+        upcomingRegistrations.value = applyRealtimeWorkshopRegistrationState(
+            upcomingRegistrations.value,
+            payload,
+        );
+        completedWorkshops.value = applyRealtimeWorkshopRegistrationState(
+            completedWorkshops.value,
+            payload,
+        );
+    },
+});
 
 const nf = new Intl.NumberFormat(undefined);
 

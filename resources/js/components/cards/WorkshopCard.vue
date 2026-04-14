@@ -121,6 +121,9 @@ function formatRange(startsAt: string, endsAt: string): string {
                 class="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-xs text-amber-950 dark:text-amber-100"
             >
                 On waiting list
+                <span v-if="props.workshop.my_waiting_list_position !== null">
+                    · Position #{{ props.workshop.my_waiting_list_position }}
+                </span>
             </div>
             <div class="flex flex-wrap items-center gap-2 pt-1">
                 <Form

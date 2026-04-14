@@ -10,6 +10,7 @@ import Table from '@/components/tables/Table.vue';
 import type { TableColumn } from '@/components/tables/types';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { useEchoPrivateEvent } from '@/composables/useEchoPrivateEvent';
 import adminWorkshops from '@/routes/admin/workshops';
 import type { WorkshopShowPayload } from '@/types/models';
 
@@ -24,12 +25,73 @@ const props = defineProps<{
     filters: Record<string, unknown>;
 }>();
 
-const tableRows = computed(() =>
-    props.participantList.map((row) => ({ ...row }) as Record<string, unknown>),
+const workshopState = ref<WorkshopShowPayload>({ ...props.workshop });
+const canAttachParticipantsState = ref(props.canAttachParticipants);
+const participantListState = ref<Record<string, unknown>[]>(
+    props.participantList.map(
+        (row) => ({ ...row }) as Record<string, unknown>,
+    ),
+);
+const assignableUsersState = ref<AssignableUser[]>([...props.assignableUsers]);
+
+watch(
+    () => props.workshop,
+    (next) => {
+        workshopState.value = { ...next };
+    },
+    { deep: true },
 );
 
+watch(
+    () => props.canAttachParticipants,
+    (next) => {
+        canAttachParticipantsState.value = next;
+    },
+);
+
+watch(
+    () => props.participantList,
+    (next) => {
+        participantListState.value = next.map(
+            (row) => ({ ...row }) as Record<string, unknown>,
+        );
+    },
+    { deep: true },
+);
+
+watch(
+    () => props.assignableUsers,
+    (next) => {
+        assignableUsersState.value = [...next];
+    },
+    { deep: true },
+);
+
+useEchoPrivateEvent<{
+    'workshop.participants.updated': {
+        workshop: WorkshopShowPayload;
+        canAttachParticipants: boolean;
+        participantList: Record<string, unknown>[];
+        assignableUsers: AssignableUser[];
+    };
+}>({
+    channel: computed(() => `admin.workshops.${workshopState.value.id}`),
+    listeners: {
+        'workshop.participants.updated': (payload) => {
+            workshopState.value = { ...payload.workshop };
+            canAttachParticipantsState.value = payload.canAttachParticipants;
+            participantListState.value = payload.participantList.map(
+                (row) => ({ ...row }) as Record<string, unknown>,
+            );
+            assignableUsersState.value = [...payload.assignableUsers];
+        },
+    },
+});
+
+const tableRows = computed(() => participantListState.value);
+
 const workshopHasStarted = computed(
-    () => new Date(props.workshop.starts_at).getTime() <= Date.now(),
+    () => new Date(workshopState.value.starts_at).getTime() <= Date.now(),
 );
 
 const remindOpen = ref(false);
@@ -37,7 +99,7 @@ const remindOpen = ref(false);
 const indexUrl = (query: Record<string, string>) => {
     void query;
 
-    return adminWorkshops.show.url(props.workshop.id);
+    return adminWorkshops.show.url(workshopState.value.id);
 };
 
 const removeOpen = ref(false);
@@ -66,8 +128,8 @@ watchEffect(() => {
                 href: adminWorkshops.index.url(),
             },
             {
-                title: props.workshop.title,
-                href: adminWorkshops.show.url(props.workshop.id),
+                title: workshopState.value.title,
+                href: adminWorkshops.show.url(workshopState.value.id),
             },
         ],
     });
@@ -99,27 +161,27 @@ function formatRange(startIso: string, endIso: string): string {
 
 const workshopSummaryItems = computed((): DescriptionListItem[] => {
     const items: DescriptionListItem[] = [
-        { term: 'Category', value: props.workshop.category.name },
-        { term: 'Created by', value: props.workshop.creator.name },
+        { term: 'Category', value: workshopState.value.category.name },
+        { term: 'Created by', value: workshopState.value.creator.name },
         {
             term: 'Schedule',
             value: formatRange(
-                props.workshop.starts_at,
-                props.workshop.ends_at,
+                workshopState.value.starts_at,
+                workshopState.value.ends_at,
             ),
             spanFull: true,
         },
-        { term: 'Capacity', value: `${props.workshop.enrollment} ` },
+        { term: 'Capacity', value: `${workshopState.value.enrollment} ` },
         {
             term: 'Waiting list',
-            value: props.workshop.waiting_list_registrations_count,
+            value: workshopState.value.waiting_list_registrations_count,
         },
     ];
 
-    if (props.workshop.description) {
+    if (workshopState.value.description) {
         items.push({
             term: 'Description',
-            value: props.workshop.description,
+            value: workshopState.value.description,
             spanFull: true,
             preWrap: true,
         });
@@ -130,14 +192,14 @@ const workshopSummaryItems = computed((): DescriptionListItem[] => {
 </script>
 
 <template>
-    <Head :title="`Workshop — ${workshop.title}`" />
+    <Head :title="`Workshop — ${workshopState.title}`" />
 
     <div class="flex h-full flex-1 flex-col gap-6 overflow-x-auto p-4">
         <div
             class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
         >
             <Heading
-                :title="workshop.title"
+                :title="workshopState.title"
                 description="Confirmed participants are listed first; waiting list follows in registration order."
             />
             <div class="flex flex-wrap gap-2">
@@ -151,7 +213,7 @@ const workshopSummaryItems = computed((): DescriptionListItem[] => {
                     Send reminders
                 </Button>
                 <Button variant="outline" as-child>
-                    <Link :href="adminWorkshops.edit.url(workshop.id)"
+                    <Link :href="adminWorkshops.edit.url(workshopState.id)"
                         >Edit</Link
                     >
                 </Button>
@@ -164,7 +226,7 @@ const workshopSummaryItems = computed((): DescriptionListItem[] => {
         <ConfirmDialog
             v-model:open="remindOpen"
             :form-attributes="
-                adminWorkshops.reminders.dispatch.form(workshop.id)
+                adminWorkshops.reminders.dispatch.form(workshopState.id)
             "
             title="Send reminders for this workshop?"
             description="Confirmed participants will receive the same email as the automated “tomorrow” reminder. Waiting-list users are not emailed."
@@ -187,16 +249,16 @@ const workshopSummaryItems = computed((): DescriptionListItem[] => {
                     for that user are blocked.
                 </p>
                 <p
-                    v-if="!canAttachParticipants"
+                    v-if="!canAttachParticipantsState"
                     class="text-sm text-muted-foreground"
                 >
                     This workshop is at capacity. Increase capacity in the edit
                     form or remove a participant before adding someone else.
                 </p>
                 <Form
-                    v-else-if="assignableUsers.length > 0"
+                    v-else-if="assignableUsersState.length > 0"
                     v-bind="
-                        adminWorkshops.participants.attach.form(workshop.id)
+                        adminWorkshops.participants.attach.form(workshopState.id)
                     "
                     class="flex flex-col gap-3 sm:flex-row sm:items-end"
                     v-slot="{ processing, errors }"
@@ -212,7 +274,7 @@ const workshopSummaryItems = computed((): DescriptionListItem[] => {
                         >
                             <option value="" disabled>Select user…</option>
                             <option
-                                v-for="u in assignableUsers"
+                                v-for="u in assignableUsersState"
                                 :key="u.id"
                                 :value="u.id"
                             >
@@ -272,9 +334,9 @@ const workshopSummaryItems = computed((): DescriptionListItem[] => {
 
         <ConfirmDialog
             v-model:open="removeOpen"
-            :form-attributes="
-                adminWorkshops.participants.detach.form(workshop.id)
-            "
+                :form-attributes="
+                    adminWorkshops.participants.detach.form(workshopState.id)
+                "
             title="Remove participant"
             :description="`Remove ${removeUserLabel} from this workshop? Confirmed seats may promote someone from the waiting list.`"
             confirm-label="Remove"

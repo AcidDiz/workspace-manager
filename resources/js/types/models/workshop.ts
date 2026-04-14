@@ -25,6 +25,13 @@ export type WorkshopListItem = {
     timing_status_badge_class: string;
     /** Current user's registration for this workshop, if any. */
     my_registration_status: 'confirmed' | 'waiting_list' | null;
+    my_waiting_list_position: number | null;
+};
+
+export type WorkshopRealtimeRegistrationState = {
+    workshop_id: number;
+    registration_status: 'confirmed' | 'waiting_list' | null;
+    waiting_list_position: number | null;
 };
 
 /** @deprecated Use WorkshopListItem; kept for gradual renames. */
