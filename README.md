@@ -114,13 +114,21 @@ Or use the Sail script:
 ./vendor/bin/sail artisan migrate
 ```
 
-Optional demo data:
+### 8. Seed required application data inside Sail
+
+`db:seed` is part of the base setup for this project, not just optional sample content. It provisions:
+
+- workshop roles and permissions
+- workshop categories
+- demo users and workshop data
+
+Run:
 
 ```bash
 ./vendor/bin/sail artisan db:seed
 ```
 
-### 8. Build assets or start the dev server
+### 9. Build assets or start the dev server
 
 One-off production build:
 
