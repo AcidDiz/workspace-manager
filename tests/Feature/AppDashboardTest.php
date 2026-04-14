@@ -61,6 +61,49 @@ test('employees see the app dashboard with registration summary', function () {
             ->where('registrationSummary.waiting_list', 0)
             ->has('upcomingRegistrations', 1)
             ->where('upcomingRegistrations.0.id', $upcomingWorkshop->id)
+            ->where('upcomingRegistrations.0.my_waiting_list_position', null)
             ->has('completedWorkshops', 1)
             ->where('completedWorkshops.0.id', $completedWorkshop->id));
+});
+
+test('employees see their waiting list position in the dashboard upcoming workshops', function () {
+    $employee = User::factory()->create();
+    $employee->assignRole('employee');
+
+    $admin = User::factory()->create();
+    $admin->assignRole('admin');
+
+    $upcomingWorkshop = Workshop::factory()->upcoming()->create([
+        'capacity' => 1,
+        'created_by' => $admin->id,
+    ]);
+
+    WorkshopRegistration::factory()->confirmed()->create([
+        'workshop_id' => $upcomingWorkshop->id,
+        'user_id' => User::factory()->create()->id,
+    ]);
+
+    WorkshopRegistration::factory()->waitingList()->create([
+        'workshop_id' => $upcomingWorkshop->id,
+        'user_id' => User::factory()->create()->id,
+        'created_at' => now()->subMinutes(10),
+    ]);
+
+    WorkshopRegistration::factory()->waitingList()->create([
+        'workshop_id' => $upcomingWorkshop->id,
+        'user_id' => $employee->id,
+        'created_at' => now()->subMinutes(5),
+    ]);
+
+    $this->actingAs($employee)
+        ->get(route('app.dashboard'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('app/dashboard/Index')
+            ->where('registrationSummary.confirmed', 0)
+            ->where('registrationSummary.waiting_list', 1)
+            ->has('upcomingRegistrations', 1)
+            ->where('upcomingRegistrations.0.id', $upcomingWorkshop->id)
+            ->where('upcomingRegistrations.0.my_registration_status', 'waiting_list')
+            ->where('upcomingRegistrations.0.my_waiting_list_position', 2));
 });

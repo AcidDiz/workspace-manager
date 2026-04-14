@@ -334,5 +334,47 @@ test('app workshops index includes my_registration_status for the current user',
         ->assertInertia(fn (Assert $page) => $page
             ->has('workshopList', 1)
             ->where('workshopList.0.id', $workshop->id)
-            ->where('workshopList.0.my_registration_status', 'confirmed'));
+            ->where('workshopList.0.my_registration_status', 'confirmed')
+            ->where('workshopList.0.my_waiting_list_position', null));
+});
+
+test('app workshops index includes waiting list position for the current user', function () {
+    $admin = User::factory()->create();
+    $admin->assignRole('admin');
+
+    $employee = User::factory()->create();
+    $employee->assignRole('employee');
+
+    $workshop = Workshop::factory()->upcoming()->create([
+        'capacity' => 1,
+        'created_by' => $admin->id,
+    ]);
+
+    WorkshopRegistration::factory()->confirmed()->create([
+        'workshop_id' => $workshop->id,
+        'user_id' => User::factory()->create()->id,
+    ]);
+
+    WorkshopRegistration::factory()->waitingList()->create([
+        'workshop_id' => $workshop->id,
+        'user_id' => User::factory()->create()->id,
+        'created_at' => now()->subMinutes(10),
+    ]);
+
+    $employeeRegistration = WorkshopRegistration::factory()->waitingList()->create([
+        'workshop_id' => $workshop->id,
+        'user_id' => $employee->id,
+        'created_at' => now()->subMinutes(5),
+    ]);
+
+    $this->actingAs($employee)
+        ->get(route('app.workshops.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('workshopList', 1)
+            ->where('workshopList.0.id', $workshop->id)
+            ->where('workshopList.0.my_registration_status', 'waiting_list')
+            ->where('workshopList.0.my_waiting_list_position', 2));
+
+    expect($employeeRegistration->status)->toBe(WorkshopRegistrationStatusEnum::WaitingList);
 });
